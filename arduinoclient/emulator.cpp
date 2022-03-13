@@ -3,6 +3,7 @@ void ExpansionHandle(SerialInfo s);
 void hardreset();
 void halt() {while (1) {}};
 long millis() {return 0;}
+void delay(long am) {return;}
 class Memory {
 public:
     static void write(unsigned int in, unsigned char byte) {
@@ -395,7 +396,10 @@ public:
     unsigned int pc = 0;
     unsigned char jumpcondition = 0;
     bool memautoinc = 0;
-    long time;
+    long time = 0;
+    long ct = 0;
+    bool freqlocked = 0;
+    unsigned short cfr = 1;
     unsigned char ininterrupt = 0;
     bool runinst(unsigned char inst, unsigned char arg1, unsigned char arg2, unsigned char arg3) {
         switch (inst) {
@@ -950,6 +954,10 @@ public:
             if (t.inc > 0) {r++;t.inc--;}
             if (t.dec > 0) {r--;t.dec--;}
         }
+    }
+    void clockfreq() {
+        if (!freqlocked) return;
+        delay(1 / cfr * 1000 - (long double)(millis() - ct) / freqlocked);
     }
     void start() {
         for (auto i = 0; i < 64; i++) this->registers[i] = 0;
