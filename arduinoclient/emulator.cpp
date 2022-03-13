@@ -399,7 +399,7 @@ public:
     long time = 0;
     long ct = 0;
     bool freqlocked = 0;
-    unsigned short cfr = 1;
+    unsigned int cfr = 1;
     unsigned char ininterrupt = 0;
     bool runinst(unsigned char inst, unsigned char arg1, unsigned char arg2, unsigned char arg3) {
         switch (inst) {
@@ -924,6 +924,23 @@ public:
             case 110:
                 __ea __reg[arg1 % 64];
                 __pci 2;
+                __b
+            case 111:
+                this->freqlocked = true;
+                this->cfr = arg1 + 1 + arg2 * 256;
+                __pci 3;
+                __b
+            case 112:
+                this->freqlocked = false;
+                __pci 1;
+                __b
+            case 113:
+                this->t->autoincrement = true;
+                __pci 1;
+                __b
+            case 114:
+                this->t->autoincrement = false;
+                __pci 1;
                 __b
             default:
                 return true;
