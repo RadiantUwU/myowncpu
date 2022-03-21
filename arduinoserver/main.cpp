@@ -1,4 +1,5 @@
 #include "SerialPort.hpp"
+#include "types.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <csignal>
@@ -6,35 +7,18 @@
 #include <chrono>
 #include <thread>
 #include <fstream>
+#include <vector>
 #define or ||
 #define and &&
 SerialPort *arduino;
-std::ifstream file;
 void signalHandler(int signum) {
     std::cout << "Terminated." << std::endl;
     if (arduino->isConnected()) arduino->closeSerial();
-    if (file.is_open()) file.close();
     exit(signum);
 }
-struct SerialInst {
-    char inst[3];
-    SerialInst(char* inst) {
-        this->inst[0] = inst[0];
-        this->inst[1] = inst[1];
-        this->inst[2] = inst[2];
-    }
-    SerialInst(char inst[3]) {
-        this->inst[0] = inst[0];
-        this->inst[1] = inst[1];
-        this->inst[2] = inst[2];
-    }
-    SerialInst() {}
-    SerialInst(char inst0,char inst1, char inst2) {
-        this->inst[0] = inst0;
-        this->inst[1] = inst1;
-        this->inst[2] = inst2;
-    }
-};
+std::string romfile;
+std::string configfile;
+unsigned int memorysize;
 template <typename T>
 bool areArraysEq(T* arr1, T* arr2, unsigned long long len) {
     for (unsigned long long i = 0; i < len; i++) {
@@ -43,7 +27,10 @@ bool areArraysEq(T* arr1, T* arr2, unsigned long long len) {
     return true;
 }
 bool operator == (const SerialInst& self, const SerialInst& other) {
-    return areArraysEq<char>(self.inst,other.inst,3);
+    return self.sw == other.sw;
+}
+bool operator == (const SerialInst& self, const unsigned int n) {
+    return self.sw == n;
 }
 struct SerialInfo {
     unsigned short size;
@@ -55,6 +42,39 @@ struct SerialInfo {
 };
 char *portName = nullptr;
 char *ROMFileName = nullptr;
+char *ConfigFile = nullptr;
+void ssend(SerialInfo s) {
+    if (!arduino->writeSerialPort((char*)&(s.size),2)) {
+        std::cerr<< "Fatal error, arduino not detected while writing to serial." << std::endl;
+        signalHandler(1);
+    }
+    arduino->writeSerialPort(&(s.inst),3);
+    arduino->writeSerialPort(s.data,s.size);
+    free(s.data);
+}
+class MemoryC {
+public:
+    MemoryC();
+    void initialize(unsigned int size) {
+        if (this->size == 0) {
+            this->size = 0;
+            this->ptr = malloc(size);
+        }
+    }
+    unsigned char& operator [] (unsigned int i) {
+        if (size == 0) return 0;
+        return ((unsigned char*)ptr)[i % this->size];
+    }
+    ~MemoryC() {
+        free(this->ptr);
+    }
+    unsigned short getSize() {
+        return this->size / 1024;
+    }
+private:
+    void *ptr = nullptr;
+    unsigned int size = 0;
+};MemoryC Memory;
 SerialInfo sread() {
     SerialInfo s;
     arduino->readSerialPort((const char*)(&(s.size)),2);
@@ -65,45 +85,101 @@ SerialInfo sread() {
     return s;
 }
 namespace SerialInsts {
-    SerialInst MemoryRead = SerialInst('M','R','D');
-    SerialInst FatalError = SerialInst('F','E','R');
-    SerialInst MemoryWrite = SerialInst('M','W','R');
-    SerialInst InstructionRead = SerialInst('I','R','E');
-    SerialInst ExpansionReset = SerialInst('E','R','E');
-    SerialInst ExpansionResetAll = SerialInst('E','R','A');
-    SerialInst ExpansionPing = SerialInst('E','P','I');
-    SerialInst ExpansionAsk = SerialInst('E','A','S');
-    SerialInst ExpansionRead = SerialInst('E','R','D');
-    SerialInst ExpansionSend = SerialInst('E','S','E');
-    SerialInst ExpansionGetID = SerialInst('E','I','D');
-    SerialInst ExpansionDetect = SerialInst('E','D','E');
-    SerialInst ExpansionNewRep = SerialInst('E','N','R');
-    SerialInst ExpansionExists = SerialInst('E','X','E');
-    SerialInst ExpansionWait = SerialInst('E','W','A');
-    SerialInst MemoryGetSize = SerialInst('M','S','I');
-    SerialInst Reset = SerialInst('R','S','T');
-    SerialInst GetInstruction = SerialInst('G','T','I');
-    SerialInst MemoryReset = SerialInst('M','R','T');
+    const SerialInst MemoryRead = SerialInst('M','R','D');
+    const SerialInst FatalError = SerialInst('F','E','R');
+    const SerialInst MemoryWrite = SerialInst('M','W','R');
+    const SerialInst InstructionRead = SerialInst('I','R','E');
+    const SerialInst ExpansionReset = SerialInst('E','R','E');
+    const SerialInst ExpansionResetAll = SerialInst('E','R','A');
+    const SerialInst ExpansionPing = SerialInst('E','P','I');
+    const SerialInst ExpansionAsk = SerialInst('E','A','S');
+    const SerialInst ExpansionRead = SerialInst('E','R','D');
+    const SerialInst ExpansionSend = SerialInst('E','S','E');
+    const SerialInst ExpansionGetID = SerialInst('E','I','D');
+    const SerialInst ExpansionDetect = SerialInst('E','D','E');
+    const SerialInst ExpansionNewRep = SerialInst('E','N','R');
+    const SerialInst ExpansionExists = SerialInst('E','X','E');
+    const SerialInst ExpansionWait = SerialInst('E','W','A');
+    const SerialInst MemoryGetSize = SerialInst('M','S','I');
+    const SerialInst Reset = SerialInst('R','S','T');
+    const SerialInst GetInstruction = SerialInst('G','T','I');
+    const SerialInst MemoryReset = SerialInst('M','R','T');
+    unsigned int&& MemoryReadSW = SerialInst('M','R','D').sw;
+    unsigned int&& FatalErrorSW = SerialInst('F','E','R').sw;
+    unsigned int&& MemoryWriteSW = SerialInst('M','W','R').sw;
+    unsigned int&& InstructionReadSW = SerialInst('I','R','E').sw;
+    unsigned int&& ExpansionResetSW = SerialInst('E','R','E').sw;
+    unsigned int&& ExpansionResetAllSW = SerialInst('E','R','A').sw;
+    unsigned int&& ExpansionPingSW = SerialInst('E','P','I').sw;
+    unsigned int&& ExpansionAskSW = SerialInst('E','A','S').sw;
+    unsigned int&& ExpansionReadSW = SerialInst('E','R','D').sw;
+    unsigned int&& ExpansionSendSW = SerialInst('E','S','E').sw;
+    unsigned int&& ExpansionGetIDSW = SerialInst('E','I','D').sw;
+    unsigned int&& ExpansionDetectSW = SerialInst('E','D','E').sw;
+    unsigned int&& ExpansionNewRepSW = SerialInst('E','N','R').sw;
+    unsigned int&& ExpansionExistsSW = SerialInst('E','X','E').sw;
+    unsigned int&& ExpansionWaitSW = SerialInst('E','W','A').sw;
+    unsigned int&& MemoryGetSizeSW = SerialInst('M','S','I').sw;
+    unsigned int&& ResetSW = SerialInst('R','S','T').sw;
+    unsigned int&& GetInstructionSW = SerialInst('G','T','I').sw;
+    unsigned int&& MemoryResetSW = SerialInst('M','R','T').sw;
 };
-#define dealloc free(s.data); continuare;
+#define dealloc free(s.data); continue;
 void doConnection() {
     while (true) {
         SerialInfo s = sread();
-        if (s.inst == SerialInsts::Reset) dealloc;
-        if (s.inst == SerialInsts::GetInstruction) {
-            unsigned int pc;
-            char *pc_r = (char*)&pc;
-            pc_r[0] = s.data[0];
-            pc_r[1] = s.data[1];
-            pc_r[2] = s.data[2];
-            pc_r[3] = s.data[3];
+        unsigned int pc;
+        char *pc_r = (char*)&pc;
+        SerialInfo so;
+        switch (s.sw) {
+            case SerialInsts::GetInstructionSW:
+                pc_r[0] = s.data[0];
+                pc_r[1] = s.data[1];
+                pc_r[2] = s.data[2];
+                pc_r[3] = s.data[3];
+                so.inst = SerialInsts::GetInstruction;
+                so.size = 4;
+                so.data = malloc(4);
+                so.data[0] = Memory[pc];
+                so.data[1] = Memory[pc + 1];
+                so.data[2] = Memory[pc + 2];
+                so.data[3] = Memory[pc + 3];
+                ssend(so);
+                break;
+            case Serialinsts::MemoryReadSW:
+                pc_r[0] = s.data[0];
+                pc_r[1] = s.data[1];
+                pc_r[2] = s.data[2];
+                pc_r[3] = s.data[3];
+                so.inst = SerialInsts::GetInstruction;
+                so.size = 1;
+                so.data = malloc(1);
+                so.data[0] = Memory[pc];
+                ssend(so);
+                break;
+            case SerialInsts::MemoryReadSW:
+                pc_r[0] = s.data[0];
+                pc_r[1] = s.data[1];
+                pc_r[2] = s.data[2];
+                pc_r[3] = s.data[3];
+                Memory[pc] = s.data[4];
+                break;
+            case SerialInsts::MemoryGetSizeSW:
+                so.size = 2;
+                so.data = malloc(2);
+                *((unsigned short*)(so.data)) = Memory.getSize();
+                so.inst = SerialInsts::MemoryGetSize;
+                ssend(so);
+                break;
             
-        }
+        };
+        dealloc;
     }
 };
 int main(int argc, char** argv) {
     bool makingport = false;
     bool makingrom = false;
+    bool makingconf = false;
     signal(SIGINT,signalHandler);
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -114,6 +190,9 @@ int main(int argc, char** argv) {
                 case 'r':
                     makingrom = true;
                     break;
+                case 'c':
+                    makingconf = true;
+                    break;
             }
             continue;
         }
@@ -123,10 +202,13 @@ int main(int argc, char** argv) {
         } else if (makingrom) {
             ROMFileName = argv[i];
             makingrom = false;
+        } else if (makingconf) {
+            ConfigFile = argv[i];
+            makingconf = false;
         }
     }
-    if (portName == nullptr or ROMFileName == nullptr) {
-        std::cerr<< "PortName and/or RomFileName are missing"<< std::endl;
+    if (portName == nullptr or ROMFileName == nullptr or ConfigFile == nullptr) {
+        std::cerr<< "PortName and/or RomFileName and/or ConfigFile are missing"<< std::endl;
         std::cout<< "Terminated."<< std::endl;
         return -1;
     }
@@ -138,13 +220,14 @@ int main(int argc, char** argv) {
         std::cout<< "Terminated."<< std::endl;
         return -1;
     }
-    file = std::istream(ROMFileName);
+    std::istream file(ROMFileName);
     if (!file.is_open()) {
-        std::cerr<< "Unable to open file." <<std::endl;
+        std::cerr<< "Unable to open ROM file." <<std::endl;
         std::cout<< "Terminated."<< std::endl;
         arduino->closeSerial();
         return -1;
     }
+    
     doConnection();
     return 0;
 }
