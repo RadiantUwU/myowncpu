@@ -20,3 +20,4 @@ struct SerialInst {
         this->inst[2] = inst2;
     }
 };
+#define SerialInstConst(inst0,inst1,inst2) ((unsigned int)((unsigned char)inst0) | ((unsigned int)((unsigned char)inst1) << 8) | ((unsigned int)((unsigned char)inst2) << 16))

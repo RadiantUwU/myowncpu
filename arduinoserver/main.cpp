@@ -1,5 +1,3 @@
-#include "SerialPort.hpp"
-#include "types.hpp"
 #include <iostream>
 #include <cstdlib>
 #include <csignal>
@@ -8,6 +6,11 @@
 #include <thread>
 #include <fstream>
 #include <vector>
+
+#include "SerialPort.hpp"
+#include "types.hpp"
+#include "stringUtilities.hpp"
+
 #define or ||
 #define and &&
 SerialPort *arduino;
@@ -16,8 +19,8 @@ void signalHandler(int signum) {
     if (arduino->isConnected()) arduino->closeSerial();
     exit(signum);
 }
-std::string romfile;
-std::string configfile;
+std::vector<unsigned char> romfile;
+std::vector<std::string> configfile;
 unsigned int memorysize;
 template <typename T>
 bool areArraysEq(T* arr1, T* arr2, unsigned long long len) {
@@ -48,8 +51,8 @@ void ssend(SerialInfo s) {
         std::cerr<< "Fatal error, arduino not detected while writing to serial." << std::endl;
         signalHandler(1);
     }
-    arduino->writeSerialPort(&(s.inst),3);
-    arduino->writeSerialPort(s.data,s.size);
+    arduino->writeSerialPort((const char*)(&(s.inst.inst)),3);
+    arduino->writeSerialPort((const char*)s.data,s.size);
     free(s.data);
 }
 class MemoryC {
@@ -57,12 +60,13 @@ public:
     MemoryC();
     void initialize(unsigned int size) {
         if (this->size == 0) {
-            this->size = 0;
-            this->ptr = malloc(size);
+            this->size = size * 1024;
+            this->ptr = malloc(size * 1024);
         }
     }
     unsigned char& operator [] (unsigned int i) {
-        if (size == 0) return 0;
+        unsigned char f = 0;
+        if (size == 0) return f;
         return ((unsigned char*)ptr)[i % this->size];
     }
     ~MemoryC() {
@@ -71,16 +75,25 @@ public:
     unsigned short getSize() {
         return this->size / 1024;
     }
+    void reset() {
+        for (unsigned int i = 0; i < this->size * 1024; i++) {
+            if (i >= romfile.size()) {
+                ((unsigned char*)ptr)[i] = romfile[i];
+            } else {
+                ((unsigned char*)ptr)[i] = 0;
+            }
+        }
+    }
 private:
     void *ptr = nullptr;
     unsigned int size = 0;
-};MemoryC Memory;
+} Memory;
 SerialInfo sread() {
     SerialInfo s;
     arduino->readSerialPort((const char*)(&(s.size)),2);
     arduino->readSerialPort((const char*)(&(s.inst)),3);
     void* d = malloc(s.size);
-    s.data = (char*)d;
+    s.data = (unsigned char*)d;
     arduino->readSerialPort((const char*)(s.data),s.size);
     return s;
 }
@@ -103,27 +116,27 @@ namespace SerialInsts {
     const SerialInst MemoryGetSize = SerialInst('M','S','I');
     const SerialInst Reset = SerialInst('R','S','T');
     const SerialInst GetInstruction = SerialInst('G','T','I');
-    const SerialInst MemoryReset = SerialInst('M','R','T');
-    unsigned int&& MemoryReadSW = SerialInst('M','R','D').sw;
-    unsigned int&& FatalErrorSW = SerialInst('F','E','R').sw;
-    unsigned int&& MemoryWriteSW = SerialInst('M','W','R').sw;
-    unsigned int&& InstructionReadSW = SerialInst('I','R','E').sw;
-    unsigned int&& ExpansionResetSW = SerialInst('E','R','E').sw;
-    unsigned int&& ExpansionResetAllSW = SerialInst('E','R','A').sw;
-    unsigned int&& ExpansionPingSW = SerialInst('E','P','I').sw;
-    unsigned int&& ExpansionAskSW = SerialInst('E','A','S').sw;
-    unsigned int&& ExpansionReadSW = SerialInst('E','R','D').sw;
-    unsigned int&& ExpansionSendSW = SerialInst('E','S','E').sw;
-    unsigned int&& ExpansionGetIDSW = SerialInst('E','I','D').sw;
-    unsigned int&& ExpansionDetectSW = SerialInst('E','D','E').sw;
-    unsigned int&& ExpansionNewRepSW = SerialInst('E','N','R').sw;
-    unsigned int&& ExpansionExistsSW = SerialInst('E','X','E').sw;
-    unsigned int&& ExpansionWaitSW = SerialInst('E','W','A').sw;
-    unsigned int&& MemoryGetSizeSW = SerialInst('M','S','I').sw;
-    unsigned int&& ResetSW = SerialInst('R','S','T').sw;
-    unsigned int&& GetInstructionSW = SerialInst('G','T','I').sw;
-    unsigned int&& MemoryResetSW = SerialInst('M','R','T').sw;
+    const SerialInst MemoryRes = SerialInst('M','R','T');
 };
+#define SerialInsts__MemoryReadSW SerialInstConst('M','R','D')
+#define SerialInsts__FatalErrorSW SerialInstConst('F','E','R')
+#define SerialInsts__MemoryWriteSW SerialInstConst('M','W','R')
+#define SerialInsts__InstructionReadSW SerialInstConst('I','R','E')
+#define SerialInsts__ExpansionResetSW SerialInstConst('E','R','E')
+#define SerialInsts__ExpansionResetAllSW SerialInstConst('E','R','A')
+#define SerialInsts__ExpansionPingSW SerialInstConst('E','P','I')
+#define SerialInsts__ExpansionAskSW SerialInstConst('E','A','S')
+#define SerialInsts__ExpansionReadSW SerialInstConst('E','R','D')
+#define SerialInsts__ExpansionSendSW SerialInstConst('E','S','E')
+#define SerialInsts__ExpansionGetIDSW SerialInstConst('E','I','D')
+#define SerialInsts__ExpansionDetectSW SerialInstConst('E','D','E')
+#define SerialInsts__ExpansionNewRepSW SerialInstConst('E','N','R')
+#define SerialInsts__ExpansionExistsSW SerialInstConst('E','X','E')
+#define SerialInsts__ExpansionWaitSW SerialInstConst('E','W','A')
+#define SerialInsts__MemoryGetSizeSW SerialInstConst('M','S','I')
+#define SerialInsts__ResetSW SerialInstConst('R','S','T')
+#define SerialInsts__GetInstructionSW SerialInstConst('G','T','I')
+#define SerialInsts__MemoryResetSW SerialInstConst('M','R','T')
 #define dealloc free(s.data); continue;
 void doConnection() {
     while (true) {
@@ -131,47 +144,49 @@ void doConnection() {
         unsigned int pc;
         char *pc_r = (char*)&pc;
         SerialInfo so;
-        switch (s.sw) {
-            case SerialInsts::GetInstructionSW:
+        switch (s.inst.sw) {
+            case SerialInsts__GetInstructionSW:
                 pc_r[0] = s.data[0];
                 pc_r[1] = s.data[1];
                 pc_r[2] = s.data[2];
                 pc_r[3] = s.data[3];
                 so.inst = SerialInsts::GetInstruction;
                 so.size = 4;
-                so.data = malloc(4);
+                so.data = (unsigned char*)malloc(4);
                 so.data[0] = Memory[pc];
                 so.data[1] = Memory[pc + 1];
                 so.data[2] = Memory[pc + 2];
                 so.data[3] = Memory[pc + 3];
                 ssend(so);
                 break;
-            case Serialinsts::MemoryReadSW:
+            case SerialInsts__MemoryReadSW:
                 pc_r[0] = s.data[0];
                 pc_r[1] = s.data[1];
                 pc_r[2] = s.data[2];
                 pc_r[3] = s.data[3];
                 so.inst = SerialInsts::GetInstruction;
                 so.size = 1;
-                so.data = malloc(1);
+                so.data = (unsigned char*)malloc(1);
                 so.data[0] = Memory[pc];
                 ssend(so);
                 break;
-            case SerialInsts::MemoryReadSW:
+            case SerialInsts__MemoryWriteSW:
                 pc_r[0] = s.data[0];
                 pc_r[1] = s.data[1];
                 pc_r[2] = s.data[2];
                 pc_r[3] = s.data[3];
                 Memory[pc] = s.data[4];
                 break;
-            case SerialInsts::MemoryGetSizeSW:
+            case SerialInsts__MemoryGetSizeSW:
                 so.size = 2;
-                so.data = malloc(2);
+                so.data = (unsigned char*)malloc(2);
                 *((unsigned short*)(so.data)) = Memory.getSize();
                 so.inst = SerialInsts::MemoryGetSize;
                 ssend(so);
                 break;
-            
+            case SerialInsts__ResetSW:
+                Memory.reset();
+                break;
         };
         dealloc;
     }
@@ -220,14 +235,63 @@ int main(int argc, char** argv) {
         std::cout<< "Terminated."<< std::endl;
         return -1;
     }
-    std::istream file(ROMFileName);
+    std::ifstream file(ROMFileName);
     if (!file.is_open()) {
         std::cerr<< "Unable to open ROM file." <<std::endl;
         std::cout<< "Terminated."<< std::endl;
         arduino->closeSerial();
         return -1;
     }
+    std::string fs;
+    while (!file.eof()) {
+        std::string s;
+        std::getline(file,s);
+        fs += s;
+    }
+    fs = replace(fs,"\r"," ");
+    fs = replace(fs,"\n"," ");
+    for (auto i : split(fs," ")) {
+        if (i.size() == 0) continue;
+        romfile.push_back(std::stoi(i,nullptr,16));
+    }
+    file.close();
+    file = std::ifstream(ConfigFile);
+    while (!file.eof()) {
+        std::string s;
+        std::getline(file,s);
+        fs += s;
+    }
     
+    file.close();
+    fs = replace(fs,"\r"," ");
+    fs = replace(fs,"\n"," ");
+    unsigned long long arg = 0;
+    enum ConfigInsts {
+        NONE = 0,
+        MEM_SIZE
+    } currentinst;
+    for (auto i : split(fs," ")) {
+        if (i.size() == 0) continue;
+        configfile.push_back(i);
+        switch (currentinst) {
+            case NONE:
+                if (i == "MEM_SIZE") {
+                    currentinst = MEM_SIZE;
+                }
+                break;
+            case MEM_SIZE:
+                unsigned int size = std::stoi(i,nullptr,10);
+                if (size > 16384) {
+                    std::cerr<< "Memory size is too large."<< std::endl;
+                    std::cout<< "Terminated."<< std::endl;
+                    arduino->closeSerial();
+                    return -1;
+                }
+                Memory.initialize(size);
+                currentinst = NONE;
+                break;
+        }
+    }
     doConnection();
     return 0;
 }
