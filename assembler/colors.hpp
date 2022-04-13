@@ -52,3 +52,5 @@ void init_color() {
 #define COLOR_BACKGROUND_MAGENTA "\033[105m"
 #define COLOR_BACKGROUND_CYAN "\033[106m"
 #define COLOR_BACKGROUND_WHITE "\033[107m"
+#define COLOR_RGB_BG(r,g,b) "\033[48;2;" #r ";" #g ";" #b "m"
+#define COLOR_RGB_FG(r,g,b) "\033[38;5;" #r ";" #g ";" #b "m"
