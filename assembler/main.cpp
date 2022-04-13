@@ -29,6 +29,11 @@ void init_asm() {
 int main(int argc, char** argv) {
     init_asm();
     init_color();
+    argc = 5;
+    argv[1] = "-i";
+    argv[2] = "test.txt";
+    argv[3] = "-o";
+    argv[4] = "output.txt";
     bool makinginf = false;
     bool makingouf = false;
     char* infile = nullptr;
@@ -71,21 +76,24 @@ int main(int argc, char** argv) {
         inpfile.close();
         return 1;
     }
-    std::string v;
+    char v;
     std::string af;
-    while (std::getline(inpfile, v)) {
-        af += v + "\n";
+    while (true) {
+        inpfile.get(v);
+        if (inpfile.eof()) break;
+        af += v;
     }
     inpfile.close();
-    af.pop_back();
     a.start_build(af);
     std::vector<unsigned char> out = a.finalize();
     std::stringstream ss;
     ss << std::hex;
     for (unsigned char c : out) {
-        ss << c;
+        ss << (unsigned int)c << " ";
     }
-    outpfile << ss.str();
+    std::string out_str = ss.str();
+    out_str.pop_back();
+    outpfile << out_str;
     outpfile.close();
     return 0;
 }

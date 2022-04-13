@@ -25,14 +25,15 @@ namespace __assembler_namespace {
         unsigned char addrlen = 2;
         std::unordered_map<std::string,unsigned char> consts;
         void start_build(string file) {
+            clock = getTime();
             print_info("Build started.");
             print_debug("Callstack main");
             callstack.push_back("main");
-            clock = getTime();
             assemble(file);
         }
         void assemble(string file) {
             string buffer;
+            file += " ";
             for (unsigned char a : file) {
                 switch(a) {
                     case '\r':
@@ -42,15 +43,14 @@ namespace __assembler_namespace {
                             if (isIn(buffer, "*/")) {
                                 inComment = false;
                                 buffer = split(buffer, "*/")[1];
-                            }
+                            } else buffer.clear();
                         }
-                        if (buffer.length() != 0) break;
+                        if (buffer.length() == 0) break;
                         switch (inst) {
                             case 0:
                                 break;
                             case 'o':
                                 pos = numInterpretInt(buffer);
-                                pos--;
                                 buffer.clear();
                                 inst = 0;
                                 break;
@@ -59,7 +59,7 @@ namespace __assembler_namespace {
                                     unsigned int idc = numInterpretInt(buffer);
                                     vector<unsigned char> f(idc,0);
                                     exp.insert(exp.end(), f.begin(), f.end());
-                                    pos += idc - 1;
+                                    pos += idc;
                                     buffer.clear();
                                     inst = 0;
                                     break;
@@ -69,11 +69,10 @@ namespace __assembler_namespace {
                                     posF = numInterpretInt(buffer);
                                     buffer.clear();
                                     posix++;
-                                    pos--;
                                     break;
                                 } else {
                                     vector<unsigned char> f(posF,numInterpretInt(buffer));
-                                    pos += posF - 1;
+                                    pos += posF;
                                     exp.insert(exp.end(), f.begin(), f.end());
                                     buffer.clear();
                                     inst = 0;
@@ -103,6 +102,7 @@ namespace __assembler_namespace {
                                         posix++;
                                         buffer__def += buffer + " ";
                                         buffer.clear();
+                                        break;
                                     } else if (buffer == buffer_def) {
                                         print_fatal_error("Definition name is the same as the instruction name.");
                                         print_info("Macro name: " + buffer);
@@ -114,6 +114,7 @@ namespace __assembler_namespace {
                                     } else {
                                         buffer__def += buffer + " ";
                                         buffer.clear();
+                                        break;
                                     }
                                 }
                             case 'u':
@@ -122,25 +123,25 @@ namespace __assembler_namespace {
                                 inst = 0;
                                 break;
                         }
-                        if (buffer.length() != 0) break;
+                        if (buffer.length() == 0) break;
                         switch(buffer[0]) {
-                                case 0:
-                                case 1:
-                                case 2:
-                                case 3:
-                                case 4:
-                                case 5:
-                                case 6:
-                                case 7:
-                                case 8:
-                                case 9:
+                                case '0':
+                                case '1':
+                                case '2':
+                                case '3':
+                                case '4':
+                                case '5':
+                                case '6':
+                                case '7':
+                                case '8':
+                                case '9':
                                     if (true) {
                                         vector<unsigned char> v = numInterpret(buffer);
                                         exp.insert(exp.end(),v.begin(),v.end());
+                                        pos += v.size();
                                     }
                                 case ':':
                                     labels[buffer.substr(1)] = pos;
-                                    pos--;
                                     break;
                                 case '.':
                                     buffer = buffer.substr(1);
@@ -158,11 +159,17 @@ namespace __assembler_namespace {
                                 default:
                                     if (consts.find(buffer) != consts.end()) {
                                         exp.push_back(consts[buffer]);
+                                        pos++;
                                     } else if (labels.find(buffer) != labels.end()) {
-                                        exp.push_back(labels[buffer]);
+                                        unsigned char* l = (unsigned char*)&(labels[buffer]);
+                                        exp.push_back(l[0]);
+                                        exp.push_back(l[1]);
+                                        exp.push_back(l[2]);
+                                        pos += 3;
                                     } else if (definitions.find(buffer) != definitions.end()) {
                                         callstack.push_back(buffer);
                                         print_debug("Callstack " + buffer);
+                                        pos++;
                                         assemble(definitions[buffer].def);
                                         print_debug("Exited callstack " + buffer);
                                         callstack.pop_back();
@@ -176,7 +183,6 @@ namespace __assembler_namespace {
                         buffer += a;
                         break;
                 }
-                pos++;
             }
         }
         vector <unsigned char> finalize() {
