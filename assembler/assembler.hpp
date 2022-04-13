@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <iostream>
 #include <chrono>
+#include <exception>
 
 #include "stringUtilities.hpp"
 
@@ -15,6 +16,10 @@ namespace __assembler_namespace {
         return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     }
     class Assembler;
+    struct Definition {
+        bool recursive = false;
+        string label;
+    };
     class Assembler {
     public:
         unsigned char addrlen = 2;
@@ -29,54 +34,53 @@ namespace __assembler_namespace {
                         if (inComment) {
                             if (isIn(buffer, "*/")) {
                                 inComment = false;
-                                buffer.clear();r
+                                buffer = split(buffer, "*/")[1];
                             }
+                        }
+                        switch (inst) {
+                            case 0:
+                                break;
+                            case 'o':
+                                pos = 
                         }
                         if (buffer.length() != 0) {
                             switch(buffer[0]) {
-                                case '0':
-                                    if (buffer.length() > 2) {
-                                        bool gud = true;
-                                        switch (buffer[1]) {
-                                            case 'x':
-                                                exp.push_back(stoi(buffer.substr(2), nullptr, 16));
-                                                break;
-                                            case 'o':
-                                                exp.push_back(stoi(buffer.substr(2), nullptr, 8));
-                                                break;
-                                            case 'b':
-                                                exp.push_back(stoi(buffer.substr(2), nullptr, 2));
-                                                break;
-                                            default:
-                                                gud = false;
-                                                break;
-                                        }
-                                        if (gud) break;
+                                case 0:
+                                case 1:
+                                case 2:
+                                case 3:
+                                case 4:
+                                case 5:
+                                case 6:
+                                case 7:
+                                case 8:
+                                case 9:
+                                    if (true) {
+                                        vector<unsigned char> v = numInterpret(buffer);
+                                        exp.insert(exp.end(),v.begin(),v.end());
                                     }
-                                case '1':
-                                case '2':
-                                case '3':
-                                case '4':
-                                case '5':
-                                case '6':
-                                case '7':
-                                case '8':
-                                case '9':
-                                    exp.push_back(stoi(buffer, nullptr, 10));
-                                    break;
                                 case ':':
                                     labels[buffer.substr(1)] = pos;
                                     pos--;
+                                    break;
+                                case '.':
+                                    buffer = buffer.substr(1);
+                                    if (buffer == "org") inst = 'o';
+                                    else if (buffer == "emp") inst = 'e';
+                                    else if (buffer == "fill") inst = 'f';
+                                    else if (buffer == "def") inst = 'd';
+                                    else if (buffer == "undef") inst = 'u';
+                                    else if (buffer == "recursivedef") inst = 'r';
                                     break;
                                 case '/':
                                     if (buffer == "/*") {
                                         inComment = true;
                                     }
-                                case '*':
                                 default:
 
                             }
                         }
+                        buffer.clear();
                         break;
                     default:
                         buffer += a;
@@ -86,6 +90,7 @@ namespace __assembler_namespace {
             }
         }
         vector <unsigned char> finalize() {
+            if (inst != 0)
             vector<unsigned char> ret = exp;
             exp.clear();
             labels.clear();
@@ -93,10 +98,50 @@ namespace __assembler_namespace {
             return ret;
         }
     protected:
-        std::unordered_map<std::string,unsigned int> labels;
+        vector <unsigned char> numInterpret(string buffer) {
+            vector <unsigned char> ret;
+            switch (buffer[0]) {
+                case '0':
+                    if (buffer.length() > 2) {
+                        bool gud = true;
+                        switch (buffer[1]) {
+                            case 'x':
+                                ret.push_back(stoi(buffer.substr(2), nullptr, 16));
+                                break;
+                            case 'o':
+                                ret.push_back(stoi(buffer.substr(2), nullptr, 8));
+                                break;
+                            case 'b':
+                                ret.push_back(stoi(buffer.substr(2), nullptr, 2));
+                                break;
+                            default:
+                                gud = false;
+                                break;
+                        }
+                        if (gud) break;
+                    }
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7':
+                case '8':
+                case '9':
+                    ret.push_back(stoi(buffer, nullptr, 10));
+                    break;
+            }
+            return ret;
+        }
+        unordered_map<string,unsigned int> labels;
+        unordered_map<string,Definition> definitions;
         vector <unsigned char> exp;
         unsigned int pos = 0;
-        bool inComment;
+    private:
+        bool inComment = false;
+        unsigned char inst = 0;
+        unsigned char posix = 0;
     };
 };
 using __assembler_namespace::Assembler;
