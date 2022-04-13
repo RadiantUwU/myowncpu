@@ -1,3 +1,4 @@
+#pragma once
 void init_color() {
 #ifdef WIN32
     system("color 07")

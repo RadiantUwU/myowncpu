@@ -6,6 +6,8 @@
 
 #include "stringUtilities.hpp"
 
+#pragma once
+
 namespace __assembler_namespace {
     using namespace std;
     using namespace std::chrono;
@@ -15,6 +17,7 @@ namespace __assembler_namespace {
     class Assembler;
     class Assembler {
     public:
+        unsigned char addrlen = 2;
         std::unordered_map<std::string,unsigned char> consts;
         void assemble(string file) {
             string buffer;
@@ -23,6 +26,12 @@ namespace __assembler_namespace {
                     case '\r':
                     case '\n':
                     case ' ':
+                        if (inComment) {
+                            if (isIn(buffer, "*/")) {
+                                inComment = false;
+                                buffer.clear();r
+                            }
+                        }
                         if (buffer.length() != 0) {
                             switch(buffer[0]) {
                                 case '0':
@@ -59,6 +68,13 @@ namespace __assembler_namespace {
                                     labels[buffer.substr(1)] = pos;
                                     pos--;
                                     break;
+                                case '/':
+                                    if (buffer == "/*") {
+                                        inComment = true;
+                                    }
+                                case '*':
+                                default:
+
                             }
                         }
                         break;
@@ -80,5 +96,7 @@ namespace __assembler_namespace {
         std::unordered_map<std::string,unsigned int> labels;
         vector <unsigned char> exp;
         unsigned int pos = 0;
+        bool inComment;
     };
 };
+using __assembler_namespace::Assembler;
