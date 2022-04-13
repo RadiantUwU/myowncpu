@@ -29,11 +29,6 @@ void init_asm() {
 int main(int argc, char** argv) {
     init_asm();
     init_color();
-    argc = 5;
-    argv[1] = "-i";
-    argv[2] = "test.txt";
-    argv[3] = "-o";
-    argv[4] = "output.txt";
     bool makinginf = false;
     bool makingouf = false;
     char* infile = nullptr;
