@@ -246,15 +246,15 @@ int main(int argc, char** argv) {
     while (!file.eof()) {
         std::string s;
         std::getline(file,s);
-        fs += s;
+        fs += s + (std::string)" ";
     }
+    file.close();
     fs = replace(fs,"\r"," ");
     fs = replace(fs,"\n"," ");
     for (auto i : split(fs," ")) {
         if (i.size() == 0) continue;
         romfile.push_back(std::stoi(i,nullptr,16));
     }
-    file.close();
     file = std::ifstream(ConfigFile);
     while (!file.eof()) {
         std::string s;
@@ -269,7 +269,7 @@ int main(int argc, char** argv) {
     enum ConfigInsts {
         NONE = 0,
         MEM_SIZE
-    } currentinst;
+    } currentinst = NONE;
     for (auto i : split(fs," ")) {
         if (i.size() == 0) continue;
         configfile.push_back(i);
