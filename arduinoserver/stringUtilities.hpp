@@ -308,3 +308,10 @@ unsigned char charlistToNumber(unsigned char c) {
     }
     return find(__charlist_for_ints, c);
 }
+std::string repeat(const std::string& str, unsigned int times) {
+    std::string repeated;
+    for (unsigned int i = 0; i < times; ++i) {
+        repeated += str;
+    }
+    return repeated;
+}

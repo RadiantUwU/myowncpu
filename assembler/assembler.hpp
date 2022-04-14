@@ -17,11 +17,32 @@ namespace __assembler_namespace {
     long long getTime() {
         return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     }
-    class Assembler;
     struct Definition {
         string def;
+        Definition(string def) : def(def) {}
     };
-    class Assembler {
+    struct CodeSegment {
+        union {
+            string code;
+            unsigned char value;
+        };
+        bool is_string = false;
+        CodeSegment(string code) : code(code), is_string(true) {}
+        CodeSegment(unsigned char value) : value(value) {}
+        ~CodeSegment() {}
+    };
+    struct AsmCode_Obj {
+        vector<CodeSegment> code;
+        unsigned int pos = 0;
+        void reset() {
+            this->code.clear();
+            this->pos = 0;
+        }
+        ~AsmCode_Obj() {
+            this->code.clear();
+        }
+    };
+    class OldAssembler {
     public:
         unsigned char addrlen = 2;
         std::unordered_map<std::string,unsigned char> consts;
@@ -268,7 +289,12 @@ namespace __assembler_namespace {
                 case '9':
                     return stoi(buffer, nullptr, 10);
             }
-            return 0;
+            print_fatal_error("Invalid number.");
+            print_debug("Printing callstack.");
+            for (string s : callstack) {
+                print_debug(s);
+            }
+            throw RuntimeError("Invalid number.");
         }
         unordered_map<string,unsigned int> labels;
         unordered_map<string,Definition> definitions;
@@ -309,5 +335,119 @@ namespace __assembler_namespace {
         string buffer_def;
         string buffer__def;
     };
+    class Assembler : protected OldAssembler {
+    public:
+        using OldAssembler::addrlen;
+        using OldAssembler::consts;
+        vector <unsigned char> build(string asm_code);
+
+        void reset() {
+            uncommentedcode.clear();
+            codewdefs.reset();
+            codewinsts.reset();
+            codewlabels.reset();
+            definitions.clear();
+            labels.clear();
+        }
+    protected:
+        void uncomment(string asm_code) {
+            string buffer;
+            bool inComment = false;
+            asm_code+= " ";
+            for (char c : asm_code) switch (c) {
+                case ' ':
+                case '\n':
+                case '\t':
+                    if (buffer.length() != 0) {
+                        if (inComment && isIn(buffer, "*/")) {
+                            inComment = false;
+                            uncommentedcode.push_back(split(buffer, "*/")[1]);
+                        } else if (!inComment && isIn(buffer, "/*")) {
+                            inComment = true;
+                            uncommentedcode.push_back(split(buffer, "/*")[0]);
+                        } else if (!inComment) {
+                            uncommentedcode.push_back(buffer);
+                        }
+                    }
+                    buffer.clear();
+                    break;
+                default:
+                    buffer += c;
+                    break;
+            }
+        }
+        void stage1tostage2asm() {
+            for (string s : uncommentedcode) {
+                if (exec > 0) {
+                    if (s == ".def") exec++;
+                    else if (s == ".if") exec++;
+                    else if (s == ".ifdef") exec++;
+                    else if (s == ".end") exec--;
+                }
+                else {
+                    bool insf = false;
+                    if (s[0] == '.') {
+                        if (s == ".emp") inst = FILLEMP;
+                        else if (s == ".fill") inst = FILL;
+                        else if (s == ".def") inst = DEF;
+                        else if (s == ".if") inst = IF;
+                        else if (s == ".undef") inst = UNDEF;
+                        else if (s == ".ifdef") inst = IFDEF;
+                        else insf = true;
+                    }
+                    if (insf || s[0] != '.') switch(inst) {
+                        case FILLEMP:
+                            if (true) {
+                                unsigned long long a = numInterpretInt(s);
+                                for (unsigned int i = 0; i < a; i++) codewinsts.code.push_back(0);
+                                break;
+                            }
+                        case FILL:
+                            if (posix == 0) {
+                                temp_inst[0].i = numInterpretInt(s);
+                                posix = 1;
+                            } else {
+                                unsigned long long a = numInterpretInt(s);
+                                for (unsigned long long i = 0; i < a; i++) codewinsts.code.push_back(temp_inst[0].i);
+                                posix = 0;
+                            }
+                            break;
+                        case DEF:
+                            if (posix == 0) {
+                                temp_inst[0].s = s;
+                                posix = 1;
+                            } else {
+                                definitions[temp_inst[0].s] = Definition(s);
+                                posix = 0;
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+        vector <string> uncommentedcode;
+        AsmCode_Obj codewdefs;
+        AsmCode_Obj codewinsts;
+        AsmCode_Obj codewlabels;
+        enum {
+            NONE,
+            DEF,
+            IF,
+            ELIF,
+            ELSE,
+            IFDEF,
+            ELIFDEF,
+            UNDEF,
+            FILL,
+            FILLEMP
+        } inst;
+        unsigned long long posix = 0;
+        union {
+            unsigned long long i;
+            string f;
+        } temp_inst[3];
+        unsigned long long exec = 0;
+    };
 };
 using __assembler_namespace::Assembler;
+using __assembler_namespace::OldAssembler;

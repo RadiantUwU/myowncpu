@@ -942,6 +942,20 @@ public:
                 this->t->autoincrement = false;
                 __pci 1;
                 __b
+            case 119:
+                __pci 4;
+                this->s->pushaddy(__reg[arg1 % 64], __reg[arg2 % 64], __reg[arg3 % 64]);
+                __b
+            case 120:
+                __pci 4;
+                if (true) {
+                    unsigned char *f = this->s->getaddy();
+                    __reg[arg1 % 64] = f[0];
+                    __reg[arg2 % 64] = f[1];
+                    __reg[arg3 % 64] = f[2];
+                    free(f);
+                }
+                __b
             default:
                 return true;
         }

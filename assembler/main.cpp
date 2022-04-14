@@ -6,7 +6,7 @@
 #include "assembler.hpp"
 #include "colors.hpp"
 
-Assembler a;
+OldAssembler a;
 void init_asm() {
     a.consts = {
         {"CSH",0},{"NOP",1},{"RST",2},
@@ -24,6 +24,7 @@ void init_asm() {
         {"TEA",113},{"TDA",114},
         {"JXR",115},{"JYR",116},
         {"BEP",117},{"STB",118},
+        {"PSA",119},{"POA",120}
     };
     a.addrlen = 3;
 }
