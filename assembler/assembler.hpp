@@ -163,10 +163,8 @@ namespace __assembler_namespace {
                                         pos++;
                                     } else if (labels.find(buffer) != labels.end()) {
                                         unsigned char* l = (unsigned char*)&(labels[buffer]);
-                                        exp.push_back(l[0]);
-                                        exp.push_back(l[1]);
-                                        exp.push_back(l[2]);
-                                        pos += 3;
+                                        for (int i = 0; i < addrlen; i++) exp.push_back(l[i]);
+                                        pos += addrlen;
                                     } else if (definitions.find(buffer) != definitions.end()) {
                                         callstack.push_back(buffer);
                                         print_debug("Callstack " + buffer);

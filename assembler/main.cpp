@@ -25,6 +25,7 @@ void init_asm() {
         {"JXR",115},{"JYR",116},
         {"BEP",117},{"STB",118},
     };
+    a.addrlen = 3;
 }
 int main(int argc, char** argv) {
     init_asm();
