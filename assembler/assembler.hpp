@@ -4,12 +4,13 @@
 #include <iostream>
 #include <chrono>
 #include <exception>
+#include <cmath>
 
 #include "stringUtilities.hpp"
 #include "colors.hpp"
 
 #pragma once
-
+typedef std::runtime_error RuntimeError;
 namespace __assembler_namespace {
     using namespace std;
     using namespace std::chrono;
@@ -110,7 +111,7 @@ namespace __assembler_namespace {
                                         for (string s : callstack) {
                                             print_debug(s);
                                         }
-                                        throw exception("Definition name is the same as the instruction name.");
+                                        throw RuntimeError("Definition name is the same as the instruction name.");
                                     } else {
                                         buffer__def += buffer + " ";
                                         buffer.clear();
@@ -192,7 +193,7 @@ namespace __assembler_namespace {
                 for (string s : callstack) {
                     print_debug(s);
                 }
-                throw exception("unfinished preprocessor instruction");
+                throw RuntimeError("unfinished preprocessor instruction");
             };
             vector<unsigned char> ret = exp;
             exp.clear();

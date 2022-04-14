@@ -1,9 +1,9 @@
 #pragma once
 void init_color() {
 #ifdef WIN32
-    system("color 07")
+    system("color 07");
 #elif defined(__linux__)
-    system("tput setaf 7")
+    system("tput setaf 7");
 #endif
 }
 #define COLOR_MAGENTA "\033[95m"
