@@ -3,10 +3,13 @@
 #include <vector>
 #include <sstream>
 
-#include "assembler.hpp"
-#include "colors.hpp"
+#include "../head/assembler.hpp"
 
-OldAssembler a;
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+
+Assembler a;
 void init_asm() {
     a.consts = {
         {"CSH",0},{"NOP",1},{"RST",2},
@@ -44,6 +47,8 @@ int main(int argc, char** argv) {
                 case 'o':
                     makingouf = true;
                     break;
+                case 'v':
+                    a.verbose = true;
             }
             continue;
         }
@@ -55,6 +60,11 @@ int main(int argc, char** argv) {
             makingouf = false;
         }
     }
+    #ifndef NDEBUG
+        infile = (char*)"input.txt";
+        outfile = (char*)"rom.txt";
+        a.verbose = true;
+    #endif
     if (infile == nullptr) {
         std::cout << COLOR_WHITE COLOR_BACKGROUND_RED "0 FATAL " "No input file given." COLOR_RESET << std::endl;
         return 1;
@@ -81,8 +91,7 @@ int main(int argc, char** argv) {
         af += v;
     }
     inpfile.close();
-    a.start_build(af);
-    std::vector<unsigned char> out = a.finalize();
+    std::vector<unsigned char> out = a.build(af);
     std::stringstream ss;
     ss << std::hex;
     for (unsigned char c : out) {

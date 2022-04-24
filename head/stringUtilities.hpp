@@ -2,6 +2,7 @@
 #include<vector>
 #include<iomanip>
 #include<sstream>
+#pragma once
 //check if string starts with substring
 bool startsWith(const std::string& str, const std::string& prefix)
 {
@@ -314,4 +315,77 @@ std::string repeat(const std::string& str, unsigned int times) {
         repeated += str;
     }
     return repeated;
+}
+std::string repeat(const char c, unsigned int times) {
+    std::string repeated;
+    for (unsigned int i = 0; i < times; ++i) {
+        repeated += c;
+    }
+    return repeated;
+}
+std::string repeat(const char c, unsigned int times, const std::string& whitespace) {
+    std::string repeated;
+    for (unsigned int i = 0; i < times; ++i) {
+        repeated += c;
+        if (i != times - 1) {
+            repeated += whitespace;
+        }
+    }
+    return repeated;
+}
+std::string repeat(const std::string& str, unsigned int times, const std::string& whitespace) {
+    std::string repeated;
+    for (unsigned int i = 0; i < times; ++i) {
+        repeated += str;
+        if (i != times - 1) {
+            repeated += whitespace;
+        }
+    }
+    return repeated;
+}
+//count occurences of substr in string
+unsigned int count(const std::string& str, const std::string& substr) {
+    unsigned int count = 0;
+    size_t pos = 0;
+    while ((pos = str.find(substr, pos)) != std::string::npos) {
+        ++count;
+        pos += substr.length();
+    }
+    return count;
+}
+//count occurences of substr in string
+unsigned int count(const std::string& str, const std::string& substr, size_t pos) {
+    unsigned int count = 0;
+    while ((pos = str.find(substr, pos)) != std::string::npos) {
+        ++count;
+        pos += substr.length();
+    }
+    return count;
+}
+//count occurences of substr in string
+unsigned int count(const std::string& str, const char substr) {
+    unsigned int count = 0;
+    size_t pos = 0;
+    while ((pos = str.find(substr, pos)) != std::string::npos) {
+        ++count;
+        pos += 1;
+    }
+    return count;
+}
+//count occurences of substr in string
+unsigned int count(const std::string& str, const char substr, size_t pos) {
+    unsigned int count = 0;
+    while ((pos = str.find(substr, pos)) != std::string::npos) {
+        ++count;
+        pos += 1;
+    }
+    return count;
+}
+//slice out of string position start to end
+std::string slice(const std::string& str, size_t start, size_t end) {
+    return str.substr(start, end);
+}
+//slice out of string position start to end
+std::string slice(const std::string& str, size_t start) {
+    return str.substr(start);
 }

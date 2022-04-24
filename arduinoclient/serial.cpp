@@ -44,6 +44,9 @@ void SerialSendNoMessage(char inst[3]) {
 }
 namespace SerialInsts {
     char MemoryRead[3] = {'M','R','D'};
+    char MemoryCopy[3] = {'M','C','P'};
+    char MemoryReadBulk[3] = {'M','R','B'};
+    char MemoryWriteBulk[3] = {'M','W','B'};
     char FatalError[3] = {'F','E','R'};
     char MemoryWrite[3] = {'M','W','R'};
     char InstructionRead[3] = {'I','R','E'};
@@ -62,4 +65,5 @@ namespace SerialInsts {
     char Reset[3] = {'R','S','T'};
     char GetInstruction[3] = {'G','T','I'};
     char MemoryReset[3] = {'M','R','T'};
+    char Debug[3] = {'D','B','G'};
 };
