@@ -490,6 +490,13 @@ namespace __assembler_namespace {
             inst = NONE;
             posix = 0;
             exec = 0;
+            add[0] = 0;
+            add[1] = 0;
+            sub[0] = 0;
+            sub[1] = 0;
+            mul[0] = 0;
+            mul[1] = 0;
+            doingop = false;
         }
         Assembler() {}
     protected:
@@ -656,9 +663,10 @@ namespace __assembler_namespace {
                             break;
                         case NONE:
                             if (s == "##") {
-                                combining = true;
-                                break;
-                            }
+                                combine = 2;
+                            } else if (s == "#"){
+                                combine = 1;
+                            } else
                             do_def(s,callstack.back());
                             break;
                         case INCLUDE:
@@ -725,13 +733,102 @@ namespace __assembler_namespace {
                     case '7':
                     case '8':
                     case '9':
-                        if (true) {
+                        if (doingop) {
+                            if (add[0] > 0) {
+                                for (auto& a : add) if (a > 4) {
+                                    print_warning("Attempted to do an add operation of more than 4 bytes. 4 bytes will be used.");
+                                    a = 4;
+                                }
+                                int v = max(add[0], add[1]);
+                                unsigned int a = 0;
+                                unsigned int b = numInterpretInt(i.code);
+                                for (int i = 0; i < add[0]; i++) {
+                                    a += codewconsts.code.back().value * pow(256, add[0]-i);
+                                    codewconsts.code.pop_back();
+                                }
+                                vector<unsigned char> ve;
+                                for (int i = 0; i < v; i++) {
+                                    ve.push_back((a + b) >> (8*i));
+                                }
+                                codewconsts.code.insert(codewconsts.code.end(),ve.begin(),ve.end());
+                                doingop = false;
+                                add[0] = 0;
+                                add[1] = 0;
+                            } else if (sub[0] > 0) {
+                                for (auto& a : sub) if (a > 4) {
+                                    print_warning("Attempted to do a sub operation of more than 4 bytes. 4 bytes will be used.");
+                                    a = 4;
+                                }
+                                int v = max(sub[0], sub[1]);
+                                unsigned int a = 0;
+                                unsigned int b = numInterpretInt(i.code);
+                                for (int i = 0; i < sub[0]; i++) {
+                                    a += codewconsts.code.back().value * pow(256, sub[0]-i);
+                                    codewconsts.code.pop_back();
+                                }
+                                vector<unsigned char> ve;
+                                for (int i = 0; i < v; i++) {
+                                    ve.push_back((a - b) >> (8*i));
+                                }
+                                codewconsts.code.insert(codewconsts.code.end(),ve.begin(),ve.end());
+                                doingop = false;
+                                sub[0] = 0;
+                                sub[1] = 0;
+                            } else if (mul[0] > 0) {
+                                for (auto& a : mul) if (a > 4) {
+                                    print_warning("Attempted to do a mul operation of more than 4 bytes. 4 bytes will be used.");
+                                    a = 4;
+                                }
+                                int v = max(mul[0], mul[1]);
+                                unsigned int a = 0;
+                                unsigned int b = numInterpretInt(i.code);
+                                for (int i = 0; i < mul[0]; i++) {
+                                    a += codewconsts.code.back().value * pow(256, mul[0]-i);
+                                    codewconsts.code.pop_back();
+                                }
+                                vector<unsigned char> ve;
+                                for (int i = 0; i < v; i++) {
+                                    ve.push_back((a * b) >> (8*i));
+                                }
+                                codewconsts.code.insert(codewconsts.code.end(),ve.begin(),ve.end());
+                            }
+                        } else {
                             try {
                                 vector<unsigned char> v = numInterpret(i.code);
                                 codewconsts.code.insert(codewconsts.code.end(),v.begin(),v.end());
                             } catch (std::exception e) {
                                 print_debug((string)"Failed to interpret number:" + e.what());
                                 throw_err_comp("Error interpreting number: " + i.code);
+                            }
+                        }
+                        break;
+                    case '+':
+                        if (true) {
+                            string s = i.code.substr(1);
+                            int i = 0;
+                            for (auto& sv : split(s, "_")) {
+                                add[i] = numInterpretInt(sv);
+                                i++;
+                            }
+                        }
+                        break;
+                    case '-':
+                        if (true) {
+                            string s = i.code.substr(1);
+                            int i = 0;
+                            for (auto& sv : split(s, "_")) {
+                                sub[i] = numInterpretInt(sv);
+                                i++;
+                            }
+                        }
+                        break;
+                    case '*':
+                        if (true) {
+                            string s = i.code.substr(1);
+                            int i = 0;
+                            for (auto& sv : split(s, "_")) {
+                                mul[i] = numInterpretInt(sv);
+                                i++;
                             }
                         }
                         break;
@@ -803,7 +900,11 @@ namespace __assembler_namespace {
         AsmCode_Obj codewlabels; //stage 4 code
         AsmCode_Obj finishedcode; // final code
         unordered_map <string,string> indexedfilenames;
-        bool combining = false;
+        char combine = 0;
+        char add[2] = {0};
+        char sub[2] = {0};
+        char mul[2] = {0};
+        bool doingop = false;
         //index all filenames in the program's directory and subdirectories
         void index_filenames() {
             if (indexedfilenames.size() == 0) {
@@ -859,7 +960,43 @@ namespace __assembler_namespace {
             }
         }
         void do_def(string def,string curr_def) {
-            if (isIn(definitions,def)) {
+            if (combine == 1) {
+                CodeSegment f = codewdefs.code.back();
+                codewdefs.code.pop_back();
+                if (f.is_string) do_def(f.code + def,curr_def);
+                else do_def(std::to_string((int)f.value) + def,curr_def);
+                combine = 0;
+            } else if (combine == 2) {
+                size_t s = codewdefs.code.size();
+                CodeSegment f = codewdefs.code.back();
+                codewdefs.code.pop_back();
+                do_def(def,curr_def);
+                if (s >= codewdefs.code.size()) {
+                    vector<CodeSegment> new_code;
+                    while ((codewdefs.code.size() - 1) != s) {
+                        new_code.push_back(codewdefs.code.back());
+                        codewdefs.code.pop_back();
+                    }
+                    CodeSegment v = new_code.front();
+                    new_code.erase(new_code.begin());
+                    if (f.is_string) {
+                        if (v.is_string) {
+                            do_def(f.code + v.code,curr_def);
+                        } else {
+                            do_def(f.code + std::to_string((int)v.value),curr_def);
+                        }
+                    } else {
+                        if (v.is_string) {
+                            do_def(std::to_string((int)f.value) + v.code,curr_def);
+                        } else {
+                            do_def(std::to_string((int)f.value) + std::to_string((int)v.value),curr_def);
+                        }
+                    }
+                    combine = 0;
+                } else {
+                    codewdefs.code.push_back(f);
+                }
+            } else if (isIn(definitions,def)) {
                 print_debug("Found definition call for " + def);
                 if (def == curr_def) {
                     throw_err_comp("Cannot have a recursive definition call for " + def);
