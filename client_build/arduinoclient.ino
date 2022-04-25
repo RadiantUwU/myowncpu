@@ -1,6 +1,13 @@
 #include <LiquidCrystal.h>
 #define NDEBUG
-void memcpy(void* src, void* dest, unsigned long long size) {
+bool debugging = 
+#ifdef NDEBUG
+false
+#else
+true
+#endif
+;
+void memcpy(void* src, void* dest, size_t size) {
     char* src_ = (char*)src;
     char* dest_ = (char*)dest;
     for (unsigned long long i = 0; i < size; i++) {
@@ -8,7 +15,7 @@ void memcpy(void* src, void* dest, unsigned long long size) {
     }
 }
 template <typename T>
-bool areArraysEq(T* arr1, T* arr2, unsigned long long len) {
+bool areArraysEq(T* arr1, T* arr2, size_t len) {
     for (unsigned long long i = 0; i < len; i++) {
         if (arr2[i] != arr1[i]) return false;
     }
@@ -110,17 +117,12 @@ namespace SerialInsts {
     char MemoryReset[3] = {'M','R','T'};
     char Debug[3] = {'D','B','G'};
 };
-#ifndef NDEBUG
 void printDebug(const char* f) {
-    SerialSend(sizeof(f) / sizeof(char),SerialInsts::Debug,(char*)f);
+    if (debugging) SerialSend(sizeof(f) / sizeof(char),SerialInsts::Debug,(char*)f);
 }
 void printDebug(char* f, size_t n) {
-    SerialSend(n,SerialInsts::Debug,f);
+    if (debugging) SerialSend(n,SerialInsts::Debug,f);
 }
-#else
-void printDebug(const char* f) {}
-void printDebug(char* f, size_t n) {}
-#endif
 const PROGMEM char hexv[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 void hexPrint(char* p, unsigned long long n, size_t b) {
     for (int i = b; i >= 0; i--) {
@@ -136,10 +138,10 @@ void hardreset() {
 };//tomodify
 void halt() {while (1) {}};
 #define MEM_SIZE_FAST 512
-
+bool vfvf = 0;
 class Memory {
 public:
-    void write(unsigned int in, unsigned char byte) {
+    void write(unsigned long in, unsigned char byte) {
         if (!infastmode) {
             char* data = (char*)malloc(5);
             char* ind = (char*)(&in);
@@ -151,7 +153,7 @@ public:
             fastmem[in % MEM_SIZE_FAST] = byte;
         }
     }
-    unsigned char read(unsigned int in) {
+    unsigned char read(unsigned long in) {
         char* data = (char*)malloc(4);
         char* ind = (char*)(&in);
         memcpy(ind,data,4);
@@ -179,7 +181,7 @@ public:
             }
         }
     }
-    unsigned char* getInst(unsigned int in) {
+    unsigned char* getInst(unsigned long in) {
         if (!infastmode) {
             char* ind = (char*)(&in);
             char* data = (char*)malloc(4);
@@ -573,8 +575,28 @@ public:
 };
 void ExpansionHandle(SerialInfo s) {
     if (areArraysEq(s.inst,SerialInsts::Reset,3)) hardreset();
+    else if (areArraysEq(s.inst,SerialInsts::Debug,3)) {debugging = true; return;}
     //not supposed to get triggered under any way
     SerialSendNoMessage(SerialInsts::FatalError);
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Fatal Error 0x02");
+    lcd.setCursor(0,1);
+    lcd.print("Unknown serial inst.");
+    lcd.setCursor(0,2);
+    lcd.print("Rec:");
+    lcd.write(s.inst[0]);
+    lcd.write(s.inst[1]);
+    lcd.write(s.inst[2]);
+    lcd.setCursor(0,3);
+    lcd.print("Exp:");
+    lcd.write(SerialInsts::Reset[0]);
+    lcd.write(SerialInsts::Reset[1]);
+    lcd.write(SerialInsts::Reset[2]);
+    lcd.write(' ');
+    lcd.write(SerialInsts::Debug[0]);
+    lcd.write(SerialInsts::Debug[1]);
+    lcd.write(SerialInsts::Debug[2]);
     halt();
 }
 class Terminal {
@@ -662,6 +684,13 @@ public:
     KeyEventQueue* k;
     Joystick* j;
     Emulator() {
+        this->a = new ALU(this);
+        this->m = new Memory();
+        this->s = new StackRegister(this);
+        this->e = new ExpansionInterface(this);
+        this->t = new Terminal();
+        this->k = new KeyEventQueue();
+        this->j = new Joystick();
         SerialSendNoMessage(SerialInsts::Reset);
     }
     unsigned char registers[64];
@@ -670,7 +699,7 @@ public:
     unsigned char rega = 0;
     unsigned char regb = 0;
     unsigned char ret[3] = {0,0,0};
-    unsigned int pc = 0;
+    unsigned long pc = 0;
     unsigned char jumpcondition = 0;
     bool memautoinc = 0;
     long time = 0;
@@ -682,22 +711,22 @@ public:
     unsigned int cfr = 1;
     unsigned char ininterrupt = 0;
     bool runinst(unsigned char inst, unsigned char arg1, unsigned char arg2, unsigned char arg3) {
-        #ifndef NDEBUG
-        char* f = (char*)malloc(11);
-        f[0 ] = hexv[(inst >> 4) % 16];
-        f[1 ] = hexv[(inst     ) % 16];
-        f[2 ] = ' ';
-        f[3 ] = hexv[(arg1 >> 4) % 16];
-        f[4 ] = hexv[(arg1     ) % 16];
-        f[5 ] = ' ';
-        f[6 ] = hexv[(arg2 >> 4) % 16];
-        f[7 ] = hexv[(arg2     ) % 16];
-        f[8 ] = ' ';
-        f[9 ] = hexv[(arg3 >> 4) % 16];
-        f[10] = hexv[(arg3     ) % 16];
-        printDebug(f,11);
-        free(f);
-        #endif
+        if(debugging) {
+            char* f = (char*)malloc(11);
+            f[0 ] = hexv[(inst >> 4) % 16];
+            f[1 ] = hexv[(inst     ) % 16];
+            f[2 ] = ' ';
+            f[3 ] = hexv[(arg1 >> 4) % 16];
+            f[4 ] = hexv[(arg1     ) % 16];
+            f[5 ] = ' ';
+            f[6 ] = hexv[(arg2 >> 4) % 16];
+            f[7 ] = hexv[(arg2     ) % 16];
+            f[8 ] = ' ';
+            f[9 ] = hexv[(arg3 >> 4) % 16];
+            f[10] = hexv[(arg3     ) % 16];
+            printDebug(f,11);
+            free(f);
+        }
         switch (inst) {
             case 0:
                 return true;
@@ -1359,12 +1388,19 @@ public:
     }
     void start() {
         for (auto i = 0; i < 64; i++) this->registers[i] = 0;
+        lcd.print("Error 0x00");
+        lcd.setCursor(0, 1);
+        lcd.print("Waiting for serial..");
         while(1) {
             this->timerregistercycle();
             this->interruptcheck();
             if (this->m->fastinitialized()) this->m->infastmode = memexecfast;
             else this->m->infastmode = false;
             unsigned char* data = this->m->getInst(this->pc);
+            if (!vfvf) {
+                lcd.clear();
+                vfvf = true;
+            }
             unsigned char inst[4];
             memcpy(data,inst,4);
             free(data);
@@ -1437,16 +1473,8 @@ bool StackRegister::condeval(unsigned char cond) {
             return false;
     }
 }
-Emulator emu;
-ALU alu(&emu);
-StackRegister s(&emu);
-Memory m;
-ExpansionInterface e(&emu);
-Terminal t;
-KeyEventQueue k;
-Joystick j;
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   lcd.begin(Config::screen_x,Config::screen_y);
   lcd.clear();
   for (int i = 0; i < 4; i++) {
@@ -1455,13 +1483,7 @@ void setup() {
   for (int i = 0; i < 4; i++) {
       pinMode(Config::KOpins[i],INPUT_PULLUP);
   }
-  emu.a = &alu;
-  emu.s = &s;
-  emu.m = &m;
-  emu.e = &e;
-  emu.t = &t;
-  emu.k = &k;
-  emu.j = &j;
+  Emulator emu;
   emu.start();
 }
 void loop() {}

@@ -27,7 +27,7 @@ private:
     COMSTAT status;
     DWORD errors;
 public:
-    explicit SerialPort(const char *portName,DWORD baudrate);
+    explicit SerialPort(const char *portName);
     ~SerialPort();
 
     int readSerialPort(const char *buffer, unsigned int buf_size);
@@ -37,7 +37,7 @@ public:
     void closeSerial();
 };
 
-SerialPort::SerialPort(const char *portName,DWORD baudrate = CBR_9600)
+SerialPort::SerialPort(const char *portName)
 {
     this->connected = false;
 
@@ -69,7 +69,7 @@ SerialPort::SerialPort(const char *portName,DWORD baudrate = CBR_9600)
         }
         else
         {
-            dcbSerialParameters.BaudRate = baudrate;
+            dcbSerialParameters.BaudRate = CBR_9600;
             dcbSerialParameters.ByteSize = 8;
             dcbSerialParameters.StopBits = ONESTOPBIT;
             dcbSerialParameters.Parity = NOPARITY;

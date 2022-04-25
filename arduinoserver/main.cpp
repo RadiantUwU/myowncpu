@@ -5,6 +5,7 @@
 #include <thread>
 #include <fstream>
 #include <vector>
+#include <sstream>
 
 #include "../head/SerialPort.hpp"
 #include "types.hpp"
@@ -20,6 +21,7 @@ void signalHandler(int signum) {
 }
 std::vector<unsigned char> romfile;
 std::vector<std::string> configfile;
+bool verbose = false;
 unsigned int memorysize;
 template <typename T>
 bool areArraysEq(T* arr1, T* arr2, unsigned long long len) {
@@ -99,6 +101,22 @@ SerialInfo* sread() {
         s->data = (unsigned char*)d;
         arduino->readSerialPortBlocking((const char*)(s->data),s->size);
     }
+    if (verbose) {
+        std::cout << "SerialRead {" << std::endl
+        << "  size:" << s->size << "," << std::endl
+        << "  inst:" << s->inst.inst[0] << s->inst.inst[1] << s->inst.inst[2] << "," << std::endl
+        << "  data:" ;
+        std::stringstream st;
+        st << std::hex;
+        for (unsigned int i = 0; i < s->size; i++) {
+            st << "0x" <<(int)s->data[i] << " ";
+        }
+        // go back 1
+        st.seekp(-1,std::ios_base::end);
+        st << std::endl;
+        std::cout << st.str();
+        std::cout << "}" << std::endl;
+    }
     return s;
 }
 namespace SerialInsts {
@@ -156,6 +174,7 @@ void doConnection() {
         unsigned int pc;
         char *pc_r = (char*)&pc;
         SerialInfo* so = new SerialInfo;
+        if (verbose)
         switch (s->inst.sw()) {
             case SerialInsts__GetInstructionSW:
                 pc_r[0] = s->data[0];
@@ -169,6 +188,7 @@ void doConnection() {
                 so->data[1] = Memory[pc + 1];
                 so->data[2] = Memory[pc + 2];
                 so->data[3] = Memory[pc + 3];
+                if (verbose) std::cout<<"GetInstruction: "<<pc<<" "<<(int)so->data[0]<<" "<<(int)so->data[1]<<" "<<(int)so->data[2]<<" "<<(int)so->data[3]<<std::endl;
                 ssend(so);
                 break;
             case SerialInsts__MemoryReadSW:
@@ -187,7 +207,8 @@ void doConnection() {
                 pc_r[1] = s->data[1];
                 pc_r[2] = s->data[2];
                 pc_r[3] = s->data[3];
-                Memory[pc] = s->data[4];
+                Memory[pc] = s->data[4];\
+                free(so);
                 break;
             case SerialInsts__MemoryGetSizeSW:
                 so->size = 2;
@@ -198,6 +219,8 @@ void doConnection() {
                 break;
             case SerialInsts__ResetSW:
                 Memory.reset();
+                if (verbose) std::cout<<"Reset vector"<<std::endl;
+                free(so);
                 break;
             case SerialInsts__DebugSW:
                 if (true) {
@@ -207,6 +230,7 @@ void doConnection() {
                     std::cout << "Debug print:" << v << std::endl;
                     free(v);
                 }
+                free(so);
                 break;
             case SerialInsts__MemoryWriteBulkSW:
                 if (true) {
@@ -223,6 +247,7 @@ void doConnection() {
                     for (unsigned int i = 0; i < size_; i++) {
                         Memory[pc + i] = s->data[8 + i];
                     }
+                    free(so);
                 }
                 break;
             case SerialInsts__MemoryReadBulkSW:
@@ -267,6 +292,7 @@ void doConnection() {
                     for (unsigned int i = 0; i < size_; i++) {
                         Memory[dest_ + i] = Memory[pc + i];
                     }
+                    free(so);
                 }
         };
         dealloc;
@@ -276,14 +302,15 @@ int main(int argc, char** argv) {
     bool makingport = false;
     bool makingrom = false;
     bool makingconf = false;
-    argc = 7;
-    argv = (char**)malloc(sizeof(char*)*7);
-    argv[1] = "-p";
-    argv[2] = "\\\\.\\COM3";
-    argv[3] = "-r";
-    argv[4] = "rom.txt";
-    argv[5] = "-c";
-    argv[6] = "config.txt";
+    //argc = 8;
+    //argv = (char**)malloc(sizeof(char*)*8);
+    //argv[1] = "-p";
+    //argv[2] = "\\\\.\\COM3";
+    //argv[3] = "-r";
+    //argv[4] = "rom.txt";
+    //argv[5] = "-c";
+    //argv[6] = "config.txt";
+    //argv[7] = "-v";
     signal(SIGINT,signalHandler);
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
@@ -296,6 +323,10 @@ int main(int argc, char** argv) {
                     break;
                 case 'c':
                     makingconf = true;
+                    break;
+                case 'v':
+                    verbose = true;
+                    std::cout<<"Verbose mode"<<std::endl;
                     break;
             }
             continue;
@@ -316,9 +347,15 @@ int main(int argc, char** argv) {
         std::cout<< "Terminated."<< std::endl;
         return -1;
     }
-    arduino = new SerialPort(portName,115200);
+    arduino = new SerialPort((const char*)portName);
     if (arduino->isConnected()) {
         std::cout<< "Connection established."<< std::endl;
+        //if (verbose) {
+        //    SerialInfo s;
+        //    s.size = 0;
+        //    s.inst = SerialInsts::Debug;
+        //    ssend(&s);
+        //}
     } else {
         std::cerr<< "Failed to connect to port."<< std::endl;
         std::cout<< "Terminated."<< std::endl;
