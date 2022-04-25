@@ -88,6 +88,7 @@ namespace __assembler_namespace {
             s.clear();
         }
     };
+    
     class OldAssembler {
     public:
         unsigned char addrlen = 2;
@@ -287,26 +288,28 @@ namespace __assembler_namespace {
                         unsigned int i;
                         switch (buffer[1]) {
                             case 'x':
-                                i = stoi(buffer.substr(2), nullptr, 16);
+                                i = stoll(buffer.substr(2), nullptr, 16);
                                 for (int j = 0; j < addrlen; j++) {
                                     ret.push_back(i & 0xFF);
                                     i >>= 8;
                                 }
                                 break;
                             case 'o':
-                                i = stoi(buffer.substr(2), nullptr, 8);
+                                i = stoll(buffer.substr(2), nullptr, 8);
                                 for (int j = 0; j < addrlen; j++) {
                                     ret.push_back(i & 0xFF);
                                     i >>= 8;
                                 }
                                 break;
                             case 'b':
-                                i = stoi(buffer.substr(2), nullptr, 2);
+                                i = stoll(buffer.substr(2), nullptr, 2);
                                 for (int j = 0; j < addrlen; j++) {
                                     ret.push_back(i & 0xFF);
                                     i >>= 8;
                                 }
                                 break;
+                            case 'c':
+                                ret.push_back(buffer[2] & 0xFF);
                             default:
                                 gud = false;
                                 break;
@@ -322,7 +325,7 @@ namespace __assembler_namespace {
                 case '7':
                 case '8':
                 case '9':
-                    unsigned int i = stoi(buffer, nullptr, 10);
+                    unsigned int i = stoll(buffer, nullptr, 10);
                     for (int j = 0; j < addrlen; j++) {
                         ret.push_back(i & 0xFF);
                         i >>= 8;
@@ -341,22 +344,22 @@ namespace __assembler_namespace {
                         bool gud = true;
                         switch (buffer[1]) {
                             case 'x':
-                                i = stoi(buffer.substr(2), nullptr, 16);
+                                i = stoll(buffer.substr(2), nullptr, 16);
                                 ret.push_back(i & 0xFF);
                                 break;
                             case 'o':
-                                i = stoi(buffer.substr(2), nullptr, 8);
+                                i = stoll(buffer.substr(2), nullptr, 8);
                                 ret.push_back(i & 0xFF);
                                 break;
                             case 'b':
-                                i = stoi(buffer.substr(2), nullptr, 2);
+                                i = stoll(buffer.substr(2), nullptr, 2);
                                 ret.push_back(i & 0xFF);
                                 break;
                             case 'c':
                                 ret.push_back(buffer[2] & 0xFF);
                                 break;
                             case 's':
-                                for (int i = 3; i < buffer.length(); i++) {
+                                for (int i = 3; i < buffer.length() - 1; i++) {
                                     ret.push_back(buffer[i] & 0xFF);
                                 }
                                 break;
@@ -375,7 +378,7 @@ namespace __assembler_namespace {
                 case '7':
                 case '8':
                 case '9':
-                    i = stoi(buffer, nullptr, 10);
+                    i = stoll(buffer, nullptr, 10);
                     ret.push_back(i & 0xFF);
                     break;
             }
@@ -387,11 +390,11 @@ namespace __assembler_namespace {
                 case '0':
                     if (buffer.length() > 2) switch (buffer[1]) {
                         case 'x':
-                            return stoi(buffer.substr(2), nullptr, 16);
+                            return stoll(buffer.substr(2), nullptr, 16);
                         case 'o':
-                            return stoi(buffer.substr(2), nullptr, 8);
+                            return stoll(buffer.substr(2), nullptr, 8);
                         case 'b':
-                            return stoi(buffer.substr(2), nullptr, 2);
+                            return stoll(buffer.substr(2), nullptr, 2);
                         case 'c':
                             return buffer[2];
                     }
@@ -404,7 +407,7 @@ namespace __assembler_namespace {
                 case '7':
                 case '8':
                 case '9':
-                    return stoi(buffer, nullptr, 10);
+                    return stoll(buffer, nullptr, 10);
             }
             throw RuntimeError("Not a number.");
         }
@@ -450,6 +453,7 @@ namespace __assembler_namespace {
         string buffer_def;
         string buffer__def;
     };
+    
     class Assembler : protected OldAssembler {
     public:
         using OldAssembler::addrlen;
@@ -517,9 +521,13 @@ namespace __assembler_namespace {
                             inComment = true;
                             buffer.clear();
                         } else if (!inComment) {
-                            if (count(buffer, '"') == 0 || (count(buffer,'"') > 0 && !startsWith(buffer,"0s")) || count(buffer,'"') % 2 == 0) {
+                            if (count(buffer, '"') == 0 
+                            || (count(buffer,'"') > 0 && !startsWith(buffer,"0s")) 
+                            || count(buffer,'"') % 2 == 0) {
                                 uncommentedcode.push_back(buffer);
                                 buffer.clear();
+                            } else if (count(buffer,'"') % 2 == 1) {
+                                buffer.push_back(c);
                             }
                         } else {
                             buffer.clear();
@@ -537,7 +545,7 @@ namespace __assembler_namespace {
             uncommentedcode.clear();
             print_debug("Beginning build stage 2 on callstack " + callstack.back());
             for (string s : new_com) {
-                if (s == "__RANDOM_ID__") {
+                if (s == "__RANDOM_ID__" && posix == 1) {
                     std::stringstream st;
                     st << "0x" << std::hex << FULL_RAND;
                     s = st.str();
@@ -552,7 +560,7 @@ namespace __assembler_namespace {
                 }
                 if (exec == 0 || (exec == 1 && (s == ".elif" || s == ".elifdef" || s == ".elifndef"))) {
                     bool insf = false;
-                    if (s[0] == '.') {
+                    if (s[0] == '.' && inst == NONE) {
                         if (s == ".emp") inst = FILLEMP;
                         else if (s == ".fill") inst = FILL;
                         else if (s == ".def") inst = DEF;
@@ -565,8 +573,9 @@ namespace __assembler_namespace {
                         else if (s == ".error") inst = ERROR;
                         else if (s == ".include") inst = INCLUDE;
                         else insf = true;
-                    }
-                    if (insf || (s[0] != '.' && s != ".org")) switch(inst) {
+                        if (!insf) posix = 0;
+                    } else insf = true;
+                    if (insf) switch(inst) {
                         case FILLEMP:
                             if (true) {
                                 unsigned long long a = numInterpretInt(s);
@@ -666,8 +675,7 @@ namespace __assembler_namespace {
                                 combine = 2;
                             } else if (s == "#"){
                                 combine = 1;
-                            } else
-                            do_def(s,callstack.back());
+                            } else do_def(s,callstack.back());
                             break;
                         case INCLUDE:
                             if (posix == 0) {
@@ -849,6 +857,7 @@ namespace __assembler_namespace {
                         in_org = false;
                         try {
                             codewconsts.pos = numInterpretInt(i.code);
+
                         } catch (std::exception e) {
                             print_debug((string)"Failed to interpret number:" + e.what());
                             throw_err_comp("Error interpreting number: " + i.code);
@@ -869,7 +878,7 @@ namespace __assembler_namespace {
                     }
                 } else {
                     codewlabels.code.push_back(i);
-                    codewconsts.pos++;
+                    ++codewconsts.pos;
                 }
             }
             print_debug("Finishing build stage 4 on callstack " + callstack.back());
@@ -963,17 +972,18 @@ namespace __assembler_namespace {
             if (combine == 1) {
                 CodeSegment f = codewdefs.code.back();
                 codewdefs.code.pop_back();
+                combine = 0;
                 if (f.is_string) do_def(f.code + def,curr_def);
                 else do_def(std::to_string((int)f.value) + def,curr_def);
-                combine = 0;
             } else if (combine == 2) {
                 size_t s = codewdefs.code.size();
                 CodeSegment f = codewdefs.code.back();
                 codewdefs.code.pop_back();
+                combine = 0;
                 do_def(def,curr_def);
                 if (s >= codewdefs.code.size()) {
                     vector<CodeSegment> new_code;
-                    while ((codewdefs.code.size() - 1) != s) {
+                    while ((codewdefs.code.size() + 1) > s) {
                         new_code.push_back(codewdefs.code.back());
                         codewdefs.code.pop_back();
                     }
@@ -992,9 +1002,10 @@ namespace __assembler_namespace {
                             do_def(std::to_string((int)f.value) + std::to_string((int)v.value),curr_def);
                         }
                     }
-                    combine = 0;
+                    codewdefs.code.insert(codewdefs.code.end(),new_code.begin(),new_code.end());
                 } else {
                     codewdefs.code.push_back(f);
+                    combine = 2;
                 }
             } else if (isIn(definitions,def)) {
                 print_debug("Found definition call for " + def);

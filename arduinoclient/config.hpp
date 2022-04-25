@@ -1,3 +1,5 @@
+#include<Arduino.h>
+#pragma once
 namespace Config {
     enum ScreenTypes {
         _80x25 = 80*25,

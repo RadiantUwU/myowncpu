@@ -1,4 +1,7 @@
-#include<stdlib.h>
+//#include<stdlib.h>
+#include "./config.cpp"
+#include "com_head.hpp"
+#pragma once
 char getSerialByte() {
     return 0;
 }

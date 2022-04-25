@@ -5,9 +5,7 @@
 
 #include "../head/assembler.hpp"
 
-#ifdef NDEBUG
-#undef NDEBUG
-#endif
+#define NDEBUG
 
 Assembler a;
 void init_asm() {
@@ -27,7 +25,11 @@ void init_asm() {
         {"TEA",113},{"TDA",114},
         {"JXR",115},{"JYR",116},
         {"BEP",117},{"STB",118},
-        {"PSA",119},{"POA",120}
+        {"PSA",119},{"POA",120},
+        {"SWP",121},{"CSP",122},{"SWA",123},{"IFM",124},{"UFM",125},
+        {"MEMCPYA1",126},{"MEMCPYA2",127},{"MEMSET",128},{"MEMCSZ",129},{"MEMCPY",130},
+        {"$temp0",63},{"$temp1",62},{"$temp2",61},{"$temp3",60}
+
     };
     a.addrlen = 3;
 }

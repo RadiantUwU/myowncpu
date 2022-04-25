@@ -207,6 +207,67 @@ void doConnection() {
                     std::cout << "Debug print:" << v << std::endl;
                     free(v);
                 }
+                break;
+            case SerialInsts__MemoryWriteBulkSW:
+                if (true) {
+                    pc_r[0] = s->data[0];
+                    pc_r[1] = s->data[1];
+                    pc_r[2] = s->data[2];
+                    pc_r[3] = s->data[3];
+                    unsigned int size_ = 0;
+                    unsigned int* size_r = (unsigned int*)&size_;
+                    size_r[0] = s->data[4];
+                    size_r[1] = s->data[5];
+                    size_r[2] = s->data[6];
+                    size_r[3] = s->data[7];
+                    for (unsigned int i = 0; i < size_; i++) {
+                        Memory[pc + i] = s->data[8 + i];
+                    }
+                }
+                break;
+            case SerialInsts__MemoryReadBulkSW:
+                if (true) {
+                    pc_r[0] = s->data[0];
+                    pc_r[1] = s->data[1];
+                    pc_r[2] = s->data[2];
+                    pc_r[3] = s->data[3];
+                    unsigned int size_ = 0;
+                    unsigned int* size_r = (unsigned int*)&size_;
+                    size_r[0] = s->data[4];
+                    size_r[1] = s->data[5];
+                    size_r[2] = s->data[6];
+                    size_r[3] = s->data[7];
+                    so->size = 0;
+                    so->inst = SerialInsts::MemoryReadBulk;
+                    ssend(so);
+                    unsigned char* v = (unsigned char*)malloc(size_);
+                    for (unsigned int i = 0; i < size_; i++) {
+                        v[i] = Memory[pc + i];
+                    }
+                    arduino->writeSerialPort((const char*)v,size_);
+                }
+            case SerialInsts__MemoryCopySW:
+                if (true) {
+                    pc_r[0] = s->data[0];
+                    pc_r[1] = s->data[1];
+                    pc_r[2] = s->data[2];
+                    pc_r[3] = s->data[3];
+                    unsigned int size_ = 0;
+                    unsigned int* size_r = (unsigned int*)&size_;
+                    size_r[0] = s->data[4];
+                    size_r[1] = s->data[5];
+                    size_r[2] = s->data[6];
+                    size_r[3] = s->data[7];
+                    unsigned int dest_ = 0;
+                    unsigned int* dest_r = (unsigned int*)&dest_;
+                    dest_r[0] = s->data[8];
+                    dest_r[1] = s->data[9];
+                    dest_r[2] = s->data[10];
+                    dest_r[3] = s->data[11];
+                    for (unsigned int i = 0; i < size_; i++) {
+                        Memory[dest_ + i] = Memory[pc + i];
+                    }
+                }
         };
         dealloc;
     }

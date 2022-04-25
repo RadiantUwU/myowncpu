@@ -1,3 +1,133 @@
+#include <LiquidCrystal.h>
+#define NDEBUG
+void memcpy(void* src, void* dest, unsigned long long size) {
+    char* src_ = (char*)src;
+    char* dest_ = (char*)dest;
+    for (unsigned long long i = 0; i < size; i++) {
+        dest_[i] = src_[i];
+    }
+}
+template <typename T>
+bool areArraysEq(T* arr1, T* arr2, unsigned long long len) {
+    for (unsigned long long i = 0; i < len; i++) {
+        if (arr2[i] != arr1[i]) return false;
+    }
+    return true;
+}
+inline long long positive_modulo(long long i, unsigned long long n) {
+    return (i % n + n) % n;
+}
+namespace Config {
+    enum ScreenTypes {
+        _80x25 = 80*25,
+        _20x4 = 20*4,
+        _16x2 = 16*2,
+        _8x1 = 8*1
+    };
+    const ScreenTypes screen_type = _20x4;
+    const unsigned char screen_y = 4;
+    const unsigned char screen_x = 20;
+    const unsigned int keylength = 16;
+    const unsigned char KOpins[4] = {8,9,10,11};
+    const unsigned char KIpins[4] = {4,5,6,7};
+    const unsigned char speakerpin = 3;
+    const unsigned char resetpin = 2;
+    const unsigned char rs = 12;
+    const unsigned char en = 13;
+    const unsigned char d4 = A0;
+    const unsigned char d5 = A1;
+    const unsigned char d6 = A2;
+    const unsigned char d7 = A3;
+    const unsigned char joyx = A4;
+    const unsigned char joyy = A5;
+    const unsigned char* keyset = (const unsigned char*)"\x01\x02\x03\x0A\x04\x05\x06\x0B\x07\x08\x09\x0C\x0E\x00\x0F\x0D";
+}
+char getSerialByte() {
+    return Serial.read();
+}
+unsigned int getSerialAvailable() {
+    return Serial.available();
+}
+void sendSerial(char f) {Serial.write(f);}
+void SerialSend(unsigned short size, char inst[3], char* f) {
+    sendSerial(((char*)(&size))[0]); sendSerial(((char*)(&size))[1]);
+    sendSerial(inst[0]); sendSerial(inst[1]); sendSerial(inst[2]);
+    for (int i = 0; i < size; i++) sendSerial(f[i]);
+}
+struct SerialInfo {
+    unsigned short size;
+    char inst[3];
+    char* data;
+    SerialInfo(unsigned short size, char inst[3], char* data) {
+    this->size = size;
+    this->inst[0] = inst[0];
+    this->inst[1] = inst[1];
+    this->inst[2] = inst[2];
+    this->data = data;
+    }
+    SerialInfo() {
+        this->size = 0;
+        this->data = nullptr;
+    }
+};
+struct SerialInfo SerialRead() {
+    while (getSerialAvailable() < 5) {};
+    char a[2] = {getSerialByte(),getSerialByte()};
+    char inst[3] = {getSerialByte(),getSerialByte(),getSerialByte()};
+    unsigned short size = *((unsigned short*)a);
+    char* data = (char*)malloc(size);
+    for (int i = 0; i < size; i++) {
+        while (getSerialAvailable() == 0) {}
+        data[i] = getSerialByte();
+    }
+    return SerialInfo(size,inst,data);
+}
+void SerialSendNoMessage(char inst[3]) {
+    SerialSend(0,inst,nullptr);
+}
+namespace SerialInsts {
+    char MemoryRead[3] = {'M','R','D'};
+    char MemoryCopy[3] = {'M','C','P'};
+    char MemoryReadBulk[3] = {'M','R','B'};
+    char MemoryWriteBulk[3] = {'M','W','B'};
+    char FatalError[3] = {'F','E','R'};
+    char MemoryWrite[3] = {'M','W','R'};
+    char InstructionRead[3] = {'I','R','E'};
+    char ExpansionReset[3] = {'E','R','E'};
+    char ExpansionResetAll[3] = {'E','R','A'};
+    char ExpansionPing[3] = {'E','P','I'};
+    char ExpansionAsk[3] = {'E','A','S'};
+    char ExpansionRead[3] = {'E','R','D'};
+    char ExpansionSend[3] = {'E','S','E'};
+    char ExpansionGetID[3] = {'E','I','D'};
+    char ExpansionDetect[3] = {'E','D','E'};
+    char ExpansionNewRep[3] = {'E','N','R'};
+    char ExpansionExists[3] = {'E','X','E'};
+    char ExpansionWait[3] = {'E','W','A'};
+    char MemoryGetSize[3] = {'M','S','I'};
+    char Reset[3] = {'R','S','T'};
+    char GetInstruction[3] = {'G','T','I'};
+    char MemoryReset[3] = {'M','R','T'};
+    char Debug[3] = {'D','B','G'};
+};
+#ifndef NDEBUG
+void printDebug(const char* f) {
+    SerialSend(sizeof(f) / sizeof(char),SerialInsts::Debug,(char*)f);
+}
+void printDebug(char* f, size_t n) {
+    SerialSend(n,SerialInsts::Debug,f);
+}
+#else
+void printDebug(const char* f) {}
+void printDebug(char* f, size_t n) {}
+#endif
+const PROGMEM char hexv[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+void hexPrint(char* p, unsigned long long n, size_t b) {
+    for (int i = b; i >= 0; i--) {
+        p[i] = hexv[(n >> ((b - i) * 4)) % 16];
+    }
+}
+LiquidCrystal lcd(Config::rs, Config::en, Config::d4, Config::d5, Config::d6, Config::d7);
 class Emulator;
 void ExpansionHandle(SerialInfo s);
 void hardreset() {
@@ -5,16 +135,15 @@ void hardreset() {
   analogWrite(Config::resetpin, 255);
 };//tomodify
 void halt() {while (1) {}};
-long millis() {return 0;}
-void delay(long am) {return;}
 #define MEM_SIZE_FAST 512
+
 class Memory {
 public:
     void write(unsigned int in, unsigned char byte) {
         if (!infastmode) {
             char* data = (char*)malloc(5);
             char* ind = (char*)(&in);
-            memcopy(ind,data,4);
+            memcpy(ind,data,4);
             data[4] = byte;
             SerialSend(5,SerialInsts::MemoryWrite,data);
             free(data);
@@ -25,7 +154,7 @@ public:
     unsigned char read(unsigned int in) {
         char* data = (char*)malloc(4);
         char* ind = (char*)(&in);
-        memcopy(ind,data,4);
+        memcpy(ind,data,4);
         SerialSend(4,SerialInsts::MemoryRead,data);
         free(data);
         while (1) {
@@ -54,7 +183,7 @@ public:
         if (!infastmode) {
             char* ind = (char*)(&in);
             char* data = (char*)malloc(4);
-            memcopy(ind,data,4);
+            memcpy(ind,data,4);
             SerialSend(4,SerialInsts::GetInstruction,data);
             free(data);
             SerialInfo s;
@@ -66,7 +195,7 @@ public:
                 if (!areArraysEq(s.inst,SerialInsts::GetInstruction,3)) ExpansionHandle(s);
                 else break;
             }
-            return s.data;
+            return (unsigned char*)s.data;
         } else {
             unsigned char* data = (unsigned char*)malloc(4);
             if ((in % MEM_SIZE_FAST) > (MEM_SIZE_FAST - 4)) {
@@ -123,12 +252,14 @@ public:
                     unsigned int* v = (unsigned int*)malloc(8);
                     v[0] = memadrsource;
                     v[1] = memcopysize;
-                    SerialSend(8,SerialInsts::MemoryBulkRead,(char*)v);
+                    SerialSend(8,SerialInsts::MemoryReadBulk,(char*)v);
                     free(v);
                     SerialInfo s = SerialRead();
-                    if (!areArraysEq(s.inst,SerialInsts::MemoryBulkRead,3)) ExpansionHandle(s);
+                    if (!areArraysEq(s.inst,SerialInsts::MemoryReadBulk,3)) ExpansionHandle(s);
                     else {
-                        memcpy(fastmem + memadrdest,s.data,memcopysize);
+                        for (unsigned int i = 0; i < memcopysize; i++) {
+                            fastmem[(memadrdest + i) % MEM_SIZE_FAST] = Serial.read();
+                        }
                     }
                     free(s.data);
                 }
@@ -138,13 +269,13 @@ public:
                     unsigned int* v = (unsigned int*)malloc(8);
                     v[0] = memadrdest;
                     v[1] = memcopysize;
-                    SerialSend(8 + memcopysize,SerialInsts::MemoryBulkWrite,(char*)v);
+                    SerialSend(8 + memcopysize,SerialInsts::MemoryWriteBulk,(char*)v);
                     free(v);
-                    for (int i = 0; i < memcopysize; i++) sendSerial((char*)&fastmem[(memadrsource + i) % MEM_SIZE_FAST]);
+                    for (int i = 0; i < memcopysize; i++) Serial.write(fastmem[(memadrsource + i) % MEM_SIZE_FAST]);
                 }
                 break;
             case 3:
-                for (int i = 0; i < memcopysize) fastmem[(memadrdest + i) % MEM_SIZE_FAST] = fastmem[(memadrsource + i) % MEM_SIZE_FAST];
+                for (int i = 0; i < memcopysize; i++) fastmem[(memadrdest + i) % MEM_SIZE_FAST] = fastmem[(memadrsource + i) % MEM_SIZE_FAST];
                 break;
         } 
     }
@@ -312,7 +443,7 @@ public:
     unsigned char read() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionRead,data);
         free(data);
         while (1) {
@@ -328,7 +459,7 @@ public:
     bool newReply() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionNewRep,data);
         free(data);
         while (1) {
@@ -344,7 +475,7 @@ public:
     bool exists() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionExists,data);
         free(data);
         while (1) {
@@ -360,7 +491,7 @@ public:
     bool ping() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionPing,data);
         free(data);
         while (1) {
@@ -376,7 +507,7 @@ public:
     void send(unsigned char data_) {
         char* data = (char*)malloc(3);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         data[2] = data_;
         SerialSend(3,SerialInsts::ExpansionRead,data);
         free(data);
@@ -384,14 +515,14 @@ public:
     void reset() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionRead,data);
         free(data);
     }
     unsigned short getID() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionGetID,data);
         free(data);
         while (1) {
@@ -410,7 +541,7 @@ public:
     unsigned char ask() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionAsk,data);
         free(data);
         while (1) {
@@ -426,7 +557,7 @@ public:
     unsigned char wait() {
         char* data = (char*)malloc(2);
         char* ind = (char*)(&(this->expadr));
-        memcopy(ind,data,2);
+        memcpy(ind,data,2);
         SerialSend(2,SerialInsts::ExpansionWait,data);
         free(data);
         while (1) {
@@ -531,13 +662,6 @@ public:
     KeyEventQueue* k;
     Joystick* j;
     Emulator() {
-        this->a = new ALU(this);
-        this->m = new Memory();
-        this->s = new StackRegister(this);
-        this->e = new ExpansionInterface(this);
-        this->t = new Terminal();
-        this->k = new KeyEventQueue();
-        this->j = new Joystick;
         SerialSendNoMessage(SerialInsts::Reset);
     }
     unsigned char registers[64];
@@ -1242,7 +1366,7 @@ public:
             else this->m->infastmode = false;
             unsigned char* data = this->m->getInst(this->pc);
             unsigned char inst[4];
-            memcopy(data,inst,4);
+            memcpy(data,inst,4);
             free(data);
             if (runinst(inst[0],inst[1],inst[2],inst[3])) halt();
         }
@@ -1313,6 +1437,14 @@ bool StackRegister::condeval(unsigned char cond) {
             return false;
     }
 }
+Emulator emu;
+ALU alu(&emu);
+StackRegister s(&emu);
+Memory m;
+ExpansionInterface e(&emu);
+Terminal t;
+KeyEventQueue k;
+Joystick j;
 void setup() {
   Serial.begin(115200);
   lcd.begin(Config::screen_x,Config::screen_y);
@@ -1323,7 +1455,13 @@ void setup() {
   for (int i = 0; i < 4; i++) {
       pinMode(Config::KOpins[i],INPUT_PULLUP);
   }
-  Emulator emu = Emulator();
+  emu.a = &alu;
+  emu.s = &s;
+  emu.m = &m;
+  emu.e = &e;
+  emu.t = &t;
+  emu.k = &k;
+  emu.j = &j;
   emu.start();
 }
 void loop() {}
