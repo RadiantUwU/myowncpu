@@ -1,4 +1,3 @@
-#include <cstdlib>
 void memcopy(void* src, void* dest, unsigned long long size) {
     char* src_ = (char*)src;
     char* dest_ = (char*)dest;

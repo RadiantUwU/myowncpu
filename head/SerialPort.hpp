@@ -13,6 +13,11 @@
 
 #include <windows.h>
 #include <iostream>
+#include <chrono>
+
+void delay(unsigned long long ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
 
 class SerialPort
 {
@@ -26,6 +31,7 @@ public:
     ~SerialPort();
 
     int readSerialPort(const char *buffer, unsigned int buf_size);
+    void readSerialPortBlocking(const char* buffer, unsigned int buf_size, unsigned long long wait);
     bool writeSerialPort(const char *buffer, unsigned int buf_size);
     bool isConnected();
     void closeSerial();
@@ -152,4 +158,12 @@ bool SerialPort::isConnected()
 void SerialPort::closeSerial()
 {
     CloseHandle(this->handler);
+}
+void SerialPort::readSerialPortBlocking(const char* buffer, unsigned int buf_size, unsigned long long wait = 10)
+{
+    unsigned int to_read = 0;
+    while (to_read < buf_size) {
+        to_read += readSerialPort(buffer + to_read, buf_size - to_read);
+        delay(wait);
+    }
 }

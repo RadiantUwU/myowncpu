@@ -1,0 +1,12 @@
+.include "print.txt"
+JMP main
+:string_to_print
+    0s"Hello, World!" 0x00
+:string_to_print2
+    0s"<3" 0x00
+:main
+    print_string string_to_print print_string_end
+    SER 62 0
+    SER 63 1
+    TMP 62 63
+    print_string string_to_print2 print_string_end

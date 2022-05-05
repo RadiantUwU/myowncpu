@@ -1,0 +1,32 @@
+.def forireg 59 .end
+.def __forireg_target 52 .end
+.def __fori_adr_loop 56 .end
+.def __fori_adr_succ 53 .end
+
+.def fori SER forireg 0 SER __forireg_target .end
+.def fori_goto_loop PSA .end
+.def fori_goto_finish
+    POA __fori_adr_loop 57 58
+    PSA
+.end
+.def fori_end
+    POA __fori_adr_succ 54 55
+    JMP __fori
+.end
+
+:__fori
+    SJC 5 /* 2 */
+    EAI /* 16 */
+    SEA __fori_adr_finish_label
+    STR __fori_adr_succ /* 18 */
+    STR 54 /* 20 */
+    STR 55 /* 22 */
+    SEA __fori_adr_loop_label
+    STR __fori_adr_loop /* 33 */
+    STR 54 /* 35 */
+    STR 55 /* 37 */
+    DAI
+    JMI :__fori_adr_finish_label .emp 3 /* 42 */
+    JSR :__fori_adr_loop_label .emp 3 /* 46 */
+    IMR forireg /* 48 */
+    JMP __fori /* 52 end */

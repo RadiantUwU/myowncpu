@@ -1,0 +1,21 @@
+.def print_string
+    .def print_string_loop _ ## __RANDOM_ID__ .end
+    .def print_string_loop_end _ ## __RANDOM_ID__ .end
+    TEA
+    SER 62 0
+    SJC 5
+    EAI
+    SEA
+.end /* print_string */
+.def print_string_end
+    : ## print_string_loop
+        STR 63
+        JMI print_string_loop_end
+        TMS 63
+        TMU
+        JMP print_string_loop
+    : ## print_string_loop_end
+        DAI
+    .undef print_string_loop
+    .undef print_string_loop_end
+.end /* print_string_end */
