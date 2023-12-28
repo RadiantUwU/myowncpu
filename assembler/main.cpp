@@ -5,9 +5,7 @@
 
 #include "../head/assembler.hpp"
 
-#define NDEBUG
-
-Assembler a;
+Assembler<8> a;
 void init_asm() {
     a.consts = {
         {"CSH",0},{"NOP",1},{"RST",2},
@@ -32,6 +30,7 @@ void init_asm() {
 
     };
     a.addrlen = 3;
+    a.mainadr_type = a.MAINADR_JMP;
 }
 int main(int argc, char** argv) {
     init_asm();
@@ -51,6 +50,12 @@ int main(int argc, char** argv) {
                     break;
                 case 'v':
                     a.verbose = true;
+                    break;
+                case 'l':
+                    a.mainadr_type = a.MAINADR_NONE;
+                    break;
+                default:
+
             }
             continue;
         }
