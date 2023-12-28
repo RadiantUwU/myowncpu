@@ -1076,6 +1076,12 @@ namespace __assembler_namespace {
         using OldAssembler::addrlen;
         using OldAssembler::consts;
         using OldAssembler::verbose;
+        enum Show_Main_Address {
+            MAINADR_NONE,
+            MAINADR_JMP,
+            MAINADR_ADR
+        } mainadr_type;
+        uint32_t mainadr;
         vector <unsigned char> build(string asm_code);
         void reset() {
             uncommentedcode.clear();
@@ -1245,10 +1251,29 @@ namespace __assembler_namespace {
         using OldAssembler::addrlen;
         using OldAssembler::consts;
         using OldAssembler::verbose;
+        enum Show_Main_Address {
+            MAINADR_NONE,
+            MAINADR_JMP,
+            MAINADR_ADR
+        } mainadr_type = MAINADR_NONE;
+        uint32_t mainadr;
         vector <unsigned char> build(string asm_code) {
             try {
                 clock = getTime();
                 srand(time(NULL));
+                if (mainadr == MAINADR_JMP) {
+                    string jmp_inst;
+                    if (consts.find("jmp") != consts.end()) jmp_inst = "jmp";
+                    else if (consts.find("JMP") != consts.end()) jmp_inst = "JMP";
+                    else throw RuntimeError("Failed to find a valid JMP instruction.");
+                    asm_code = jmp_inst + " main\n" + asm_code;
+                } else if (mainadr == MAINADR_ADR) {
+                    std::stringbuf ss;
+                    ss << ".org 0x" << std::ios_base::hex << mainadr << "\n";
+                    std::string s = ss.str();
+                    print_debug(s);
+                    asm_code += s;
+                }
                 callstack.push_back("__main__0x" + to_string(FULL_RAND));
                 print_info("Started build for main");
                 uncomment(asm_code);
@@ -1829,11 +1854,30 @@ namespace __assembler_namespace {
         using OldAssembler::addrlen;
         using OldAssembler::consts;
         using OldAssembler::verbose;
+        enum Show_Main_Address {
+            MAINADR_NONE,
+            MAINADR_JMP,
+            MAINADR_ADR
+        } mainadr_type;
+        uint32_t mainadr;
         vector <unsigned short> build(string asm_code) {
             try {
                 clock = getTime();
                 srand(time(NULL));
-                callstack.push_back("__main__0x" + to_string(FULL_RAND));
+                if (mainadr == MAINADR_JMP) {
+                    string jmp_inst;
+                    if (consts.find("jmp") != consts.end()) jmp_inst = "jmp";
+                    else if (consts.find("JMP") != consts.end()) jmp_inst = "JMP";
+                    else throw RuntimeError("Failed to find a valid JMP instruction.");
+                    asm_code = jmp_inst + " main\n" + asm_code;
+                } else if (mainadr == MAINADR_ADR) {
+                    std::stringbuf ss;
+                    ss << ".org 0x" << std::ios_base::hex << mainadr << "\n";
+                    std::string s = ss.str();
+                    print_debug(s);
+                    asm_code += s;
+                }
+                callstack.push_back("__main__" + to_string(FULL_RAND));
                 print_info("Started build for main");
                 uncomment(asm_code);
                 stage1tostage2asm();
@@ -2413,10 +2457,29 @@ namespace __assembler_namespace {
         using OldAssembler::addrlen;
         using OldAssembler::consts;
         using OldAssembler::verbose;
+        enum Show_Main_Address {
+            MAINADR_NONE,
+            MAINADR_JMP,
+            MAINADR_ADR
+        } mainadr_type;
+        uint32_t mainadr;
         vector <unsigned long> build(string asm_code) {
             try {
                 clock = getTime();
                 srand(time(NULL));
+                if (mainadr == MAINADR_JMP) {
+                    string jmp_inst;
+                    if (consts.find("jmp") != consts.end()) jmp_inst = "jmp";
+                    else if (consts.find("JMP") != consts.end()) jmp_inst = "JMP";
+                    else throw RuntimeError("Failed to find a valid JMP instruction.");
+                    asm_code = jmp_inst + " main\n" + asm_code;
+                } else if (mainadr == MAINADR_ADR) {
+                    std::stringbuf ss;
+                    ss << ".org 0x" << std::ios_base::hex << mainadr << "\n";
+                    std::string s = ss.str();
+                    print_debug(s);
+                    asm_code += s;
+                }
                 callstack.push_back("__main__0x" + to_string(FULL_RAND));
                 print_info("Started build for main");
                 uncomment(asm_code);
